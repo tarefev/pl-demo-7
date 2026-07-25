@@ -128,8 +128,10 @@ function blockIssues(block) {
   return issues;
 }
 
-/** Иконки действий блока для узкой колонки (подписи — в подсказках). */
+/** Иконки действий блока (идут рядом с подписью кнопки). */
 const ACT_ICONS = {
+  // редактировать с ИИ — карандаш со звёздочкой
+  rewrite: '<svg viewBox="0 0 24 24"><path d="M16.5 3.5a2.4 2.4 0 1 1 3.4 3.4L7 19.8 2.5 21l1.2-4.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m19 13 .8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor"/></svg>',
   // список аргументов
   'args-modal': '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="6" r="1.4" fill="currentColor"/><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="5" cy="18" r="1.4" fill="currentColor"/></svg>',
   // судебная практика — книга
@@ -154,34 +156,31 @@ function buildBlockMeta(block) {
 
   const isCtor = !!(block.parts && block.parts.length);
   const isDefense = (block.section || 'defense') === 'defense' || isCtor;
-  // действия — компактными иконками с бейджами-счётчиками; подписи в подсказках
-  let barBtns;
+  // действия — кнопки с иконкой и подписью: главная «Редактировать с ИИ» первой
+  const barBtns = [['rewrite', 'Редактировать с ИИ', false]];
 
   if (isDefense && isCtor) {
     const argsCount = (block.argsList || []).length;
-    barBtns = [];
-    if (blockLacksEvidence(block)) barBtns.push(['scroll-evidence', 'Не хватает доказательств', true, null]);
+    if (blockLacksEvidence(block)) barBtns.push(['scroll-evidence', 'Не хватает доказательств', true]);
     barBtns.push(
-      ['args-modal', argsCount ? 'Аргументы и доводы: ' + argsCount : 'Нет аргументов и доводов', !argsCount, argsCount || null],
-      ['practice-modal', 'Практика по линии защиты', false, null]
+      ['args-modal', argsCount ? 'Аргументы и доводы: ' + argsCount : 'Нет аргументов и доводов', !argsCount],
+      ['practice-modal', 'Практика', false]
     );
   } else if (isDefense && block.kind === 'manual') {
     // новый пустой блок: выбор линии активен (после выбора сменить нельзя — только удалить блок)
-    barBtns = [['pick-line', 'Выбрать линию защиты', true, null]];
-  } else {
-    // у секций свободных кнопок нет — «Редактировать с ИИ» живёт пиктограммой в ряду
-    barBtns = [];
+    barBtns.push(['pick-line', 'Выбрать линию защиты', true]);
   }
 
   const regenHtml = isCtor ? `
-    <button class="act-ic act-ic--regen" data-special="regen" ${block.dirty ? '' : 'disabled'} title="Перегенерировать текст по конструктору">
-      ${ACT_ICONS.regen}
+    <button class="act-btn act-btn--regen" data-special="regen" ${block.dirty ? '' : 'disabled'} title="Перегенерировать текст блока по данным конструктора">
+      ${ACT_ICONS.regen}<span>Перегенерировать</span>
     </button>` : '';
 
+  // действия — кнопки с иконкой и подписью: контекст считывается без наведения
   meta.innerHTML = `
-    <div class="doc-block__tools">${barBtns.map(([id, label, warn, badge]) => `
-      <button data-tool="${id}" class="act-ic${warn ? ' act-ic--warn' : ''}" title="${label}">
-        ${ACT_ICONS[id] || ''}${badge ? `<span class="act-ic__badge">${badge}</span>` : ''}
+    <div class="doc-block__tools">${barBtns.map(([id, label, warn]) => `
+      <button data-tool="${id}" class="act-btn${warn ? ' act-btn--warn' : ''}${id === 'rewrite' ? ' act-btn--ai' : ''}" title="${label}">
+        ${ACT_ICONS[id] || ''}<span>${label}</span>
       </button>`).join('')}${regenHtml}
     </div>`;
 
@@ -1075,15 +1074,12 @@ function renderBlocks() {
       </div>
       ${details.length ? `<div class="doc-info__details">${details.map(d => `<span>${d}</span>`).join('')}</div>` : ''}`;
 
-    // ПРАВАЯ колонка — управляющие кнопки: пиктограммы + кнопки действий
+    // ПРАВАЯ колонка: служебный ряд (свернуть/удалить) + кнопки действий с подписями
     const act = document.createElement('div');
     act.className = 'doc-act';
     act.contentEditable = 'false';
     act.innerHTML = `
       <div class="doc-act__row">
-        <button class="head-ic head-ic--ai" data-h="ai" title="Редактировать с ИИ">
-          <svg viewBox="0 0 24 24"><path d="M16.5 3.5a2.4 2.4 0 1 1 3.4 3.4L7 19.8 2.5 21l1.2-4.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="m19 13 .8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor"/></svg>
-        </button>
         ${isCtor ? `<button class="head-ic" data-h="toggle" title="${block.constructorDone ? 'Открыть конструктор' : 'Закрыть конструктор'}">
           <svg viewBox="0 0 24 24" style="transform: rotate(${block.constructorDone ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>` : ''}
@@ -1092,13 +1088,6 @@ function renderBlocks() {
         </button>
       </div>`;
     act.appendChild(buildBlockMeta(block));
-
-    act.querySelector('[data-h="ai"]').addEventListener('click', e => {
-      e.stopPropagation();
-      setActiveBlock(block.id);
-      if (state.busy) return;
-      onStarAction({ id: 'rewrite', label: BLOCK_ACTION_LABELS['rewrite'], needsBlock: true });
-    });
     act.querySelector('[data-h="toggle"]')?.addEventListener('click', e => {
       e.stopPropagation();
       toggleConstructor(block);

@@ -15,8 +15,8 @@
   --shadow: 0 1px 3px rgba(20, 24, 40, .07), 0 8px 24px rgba(20, 24, 40, .05);
   /* три колонки: маргиналия с названием раздела и узкий столбец иконок действий */
   --info-w: 150px;
-  --act-w: 34px;
-  --col-gap: 10px;
+  --act-w: 172px;
+  --col-gap: 12px;
   --info-col: calc(var(--info-w) + var(--col-gap));
   --act-col: calc(var(--act-w) + var(--col-gap));
 }
@@ -485,7 +485,7 @@ body.ctrl-left .doc-info__title,
 body.ctrl-left .doc-info__details { text-align: left; }
 body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 
-/* --- ПРАВАЯ колонка: узкий столбец иконок действий (подписи в подсказках) --- */
+/* --- ПРАВАЯ колонка: кнопки действий с подписями (контекст читается сразу) --- */
 .doc-act {
   flex: 0 0 var(--act-w);
   width: var(--act-w);
@@ -494,67 +494,77 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   align-self: flex-start;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  gap: 4px;
   padding: 2px 0 0;
   cursor: default;
 }
+/* служебный ряд: свернуть конструктор и удалить блок — компактными иконками */
 .doc-act__row {
   display: flex;
-  flex-direction: column;
+  justify-content: flex-end;
   align-items: center;
   gap: 2px;
 }
-.head-ic--ai { color: var(--accent); }
-.head-ic--ai:hover { background: var(--accent-soft-2); }
 .doc-act .doc-block__meta {
   margin-top: 0;
   padding-top: 0;
   border-top: none;
-  gap: 2px;
+  gap: 4px;
 }
 .doc-act .doc-block__tools {
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  gap: 4px;
 }
 
-/* иконка действия со счётчиком-бейджем */
-.act-ic {
-  position: relative;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+/* кнопка действия: иконка + подпись, во всю ширину колонки */
+.act-btn {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #5b6270;
-  flex: none;
+  align-items: flex-start;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid #e3e9fd;
+  background: var(--accent-soft-2);
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: left;
 }
-.act-ic:hover { background: #eef0f4; }
-.act-ic svg { width: 17px; height: 17px; }
-.act-ic__badge {
-  position: absolute;
-  right: 1px;
-  bottom: 1px;
-  min-width: 13px;
-  height: 13px;
-  padding: 0 3px;
-  border-radius: 7px;
+.act-btn:hover { background: var(--accent-soft); }
+.act-btn svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+/* подпись переносится, а не обрезается — контекст виден целиком */
+.act-btn span { min-width: 0; }
+/* «Редактировать с ИИ» — главное действие блока */
+.act-btn--ai {
   background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
-  font-size: 9px;
   font-weight: 700;
-  line-height: 13px;
-  text-align: center;
 }
-/* «не хватает доказательств» — предупреждающая */
-.act-ic--warn { color: #9a6b00; background: #fdf3e0; }
-.act-ic--warn:hover { background: #fae9c8; }
-/* «перегенерировать» — акцентная, активна только при изменениях конструктора */
-.act-ic--regen { color: var(--accent); }
-.act-ic--regen:hover { background: var(--accent-soft-2); }
-.act-ic--regen:disabled { color: #c9cede; cursor: default; background: none; }
+.act-btn--ai:hover { background: #2f49d1; }
+/* «Не хватает доказательств» — предупреждающая */
+.act-btn--warn {
+  background: #fdf3e0;
+  border-color: #f0ddb0;
+  color: #9a6b00;
+}
+.act-btn--warn:hover { background: #fae9c8; }
+/* «Перегенерировать» — активна только при изменениях конструктора */
+.act-btn--regen {
+  background: #fff;
+  border-color: #c9d4fb;
+  font-weight: 700;
+}
+.act-btn--regen:hover { background: var(--accent-soft-2); }
+.act-btn--regen:disabled {
+  color: #c9cede;
+  border-color: var(--border);
+  background: #fff;
+  cursor: default;
+}
 .doc-block__grip {
   flex: none;
   color: var(--text-muted);
