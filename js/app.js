@@ -128,6 +128,20 @@ function blockIssues(block) {
   return issues;
 }
 
+/** Иконки действий блока для узкой колонки (подписи — в подсказках). */
+const ACT_ICONS = {
+  // список аргументов
+  'args-modal': '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="6" r="1.4" fill="currentColor"/><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="5" cy="18" r="1.4" fill="currentColor"/></svg>',
+  // судебная практика — книга
+  'practice-modal': '<svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v14H6.5A2.5 2.5 0 0 0 4 19.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20v4H6.5A2.5 2.5 0 0 1 4 19.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+  // не хватает доказательств — предупреждение
+  'scroll-evidence': '<svg viewBox="0 0 24 24"><path d="M12 4.5 21 20H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.15" fill="currentColor"/></svg>',
+  // привязать линию защиты — звено цепи
+  'pick-line': '<svg viewBox="0 0 24 24"><path d="M10 13.5a4 4 0 0 0 5.7.4l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.5 1.5M14 10.5a4 4 0 0 0-5.7-.4l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.5-1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  // перегенерировать
+  regen: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+
 /**
  * Панель состава и действий внутри блока (итерация 2):
  * флаги + кнопки (без «Короче/Подробнее/Вопрос»), справа «Перегенерировать»
@@ -140,35 +154,35 @@ function buildBlockMeta(block) {
 
   const isCtor = !!(block.parts && block.parts.length);
   const isDefense = (block.section || 'defense') === 'defense' || isCtor;
+  // действия — компактными иконками с бейджами-счётчиками; подписи в подсказках
   let barBtns;
 
   if (isDefense && isCtor) {
     const argsCount = (block.argsList || []).length;
-    // кнопки действий (сводка о блоке — в его шапке; смены линии нет: удалить блок и создать новый)
     barBtns = [];
-    if (blockLacksEvidence(block)) barBtns.push(['scroll-evidence', 'Не хватает доказательств', true, '']);
+    if (blockLacksEvidence(block)) barBtns.push(['scroll-evidence', 'Не хватает доказательств', true, null]);
     barBtns.push(
-      ['args-modal', argsCount ? 'Аргументы и доводы: ' + argsCount : 'Нет аргументов и доводов', !argsCount, ''],
-      ['practice-modal', 'Практика', false, '']
+      ['args-modal', argsCount ? 'Аргументы и доводы: ' + argsCount : 'Нет аргументов и доводов', !argsCount, argsCount || null],
+      ['practice-modal', 'Практика по линии защиты', false, null]
     );
   } else if (isDefense && block.kind === 'manual') {
     // новый пустой блок: выбор линии активен (после выбора сменить нельзя — только удалить блок)
-    barBtns = [
-      ['pick-line', 'Выбрать линию защиты', true, '']
-    ];
+    barBtns = [['pick-line', 'Выбрать линию защиты', true, null]];
   } else {
     // у секций свободных кнопок нет — «Редактировать с ИИ» живёт пиктограммой в ряду
     barBtns = [];
   }
 
-  const rightHtml = isCtor ? `
-    <button class="meta-regen" data-special="regen" ${block.dirty ? '' : 'disabled'}>Перегенерировать</button>` : '';
+  const regenHtml = isCtor ? `
+    <button class="act-ic act-ic--regen" data-special="regen" ${block.dirty ? '' : 'disabled'} title="Перегенерировать текст по конструктору">
+      ${ACT_ICONS.regen}
+    </button>` : '';
 
   meta.innerHTML = `
-    <div class="doc-block__tools">
-      <div class="doc-block__tools-left">${barBtns.map(([id, label, warn, cls]) =>
-        `<button data-tool="${id}" class="${warn ? 'meta-btn--warn' : ''} ${cls}" title="${label}">${label}</button>`).join('')}</div>
-      <div class="doc-block__tools-right">${rightHtml}</div>
+    <div class="doc-block__tools">${barBtns.map(([id, label, warn, badge]) => `
+      <button data-tool="${id}" class="act-ic${warn ? ' act-ic--warn' : ''}" title="${label}">
+        ${ACT_ICONS[id] || ''}${badge ? `<span class="act-ic__badge">${badge}</span>` : ''}
+      </button>`).join('')}${regenHtml}
     </div>`;
 
   meta.querySelectorAll('button[data-tool]').forEach(btn => {

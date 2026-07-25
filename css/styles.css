@@ -13,10 +13,10 @@
   --danger: #e5484d;
   --radius: 10px;
   --shadow: 0 1px 3px rgba(20, 24, 40, .07), 0 8px 24px rgba(20, 24, 40, .05);
-  /* три колонки: описание (номер, назначение) и управление (кнопки) по краям текста */
+  /* три колонки: маргиналия с названием раздела и узкий столбец иконок действий */
   --info-w: 150px;
-  --act-w: 200px;
-  --col-gap: 15px;
+  --act-w: 34px;
+  --col-gap: 10px;
   --info-col: calc(var(--info-w) + var(--col-gap));
   --act-col: calc(var(--act-w) + var(--col-gap));
 }
@@ -423,19 +423,19 @@ body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
   flex: 0 0 var(--info-w);
   width: var(--info-w);
   position: sticky;
-  top: 8px;
+  top: 4px;
   align-self: flex-start;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 4px 0;
+  gap: 3px;
+  padding: 2px 0 0;
   cursor: default;
   font-size: 13px;
 }
 .doc-info__row {
   display: flex;
   align-items: flex-start;
-  gap: 5px;
+  gap: 4px;
 }
 /* ручка перетаскивания не мозолит глаз — появляется по наведению на блок */
 .doc-info__row .doc-block__grip {
@@ -485,51 +485,76 @@ body.ctrl-left .doc-info__title,
 body.ctrl-left .doc-info__details { text-align: left; }
 body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 
-/* --- ПРАВАЯ колонка: управляющие кнопки --- */
+/* --- ПРАВАЯ колонка: узкий столбец иконок действий (подписи в подсказках) --- */
 .doc-act {
   flex: 0 0 var(--act-w);
   width: var(--act-w);
   position: sticky;
-  top: 8px;
+  top: 4px;
   align-self: flex-start;
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 4px 0;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0 0;
   cursor: default;
-  font-size: 13px;
 }
 .doc-act__row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
 }
 .head-ic--ai { color: var(--accent); }
 .head-ic--ai:hover { background: var(--accent-soft-2); }
-/* кнопки действий в столбце — вертикально, во всю ширину */
 .doc-act .doc-block__meta {
-  margin-top: 2px;
+  margin-top: 0;
   padding-top: 0;
   border-top: none;
+  gap: 2px;
 }
-.doc-act .doc-block__tools,
-.doc-act .doc-block__tools-left,
-.doc-act .doc-block__tools-right {
+.doc-act .doc-block__tools {
   flex-direction: column;
-  align-items: stretch;
-  width: 100%;
-  gap: 5px;
+  align-items: center;
+  gap: 2px;
 }
-.doc-act .doc-block__tools button {
-  width: 100%;
-  max-width: none;
-  min-width: 0;
+
+/* иконка действия со счётчиком-бейджем */
+.act-ic {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5b6270;
+  flex: none;
+}
+.act-ic:hover { background: #eef0f4; }
+.act-ic svg { width: 17px; height: 17px; }
+.act-ic__badge {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 13px;
   text-align: center;
-  padding: 4px 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
+/* «не хватает доказательств» — предупреждающая */
+.act-ic--warn { color: #9a6b00; background: #fdf3e0; }
+.act-ic--warn:hover { background: #fae9c8; }
+/* «перегенерировать» — акцентная, активна только при изменениях конструктора */
+.act-ic--regen { color: var(--accent); }
+.act-ic--regen:hover { background: var(--accent-soft-2); }
+.act-ic--regen:disabled { color: #c9cede; cursor: default; background: none; }
 .doc-block__grip {
   flex: none;
   color: var(--text-muted);
