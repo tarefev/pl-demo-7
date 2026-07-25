@@ -156,18 +156,12 @@ function buildBlockMeta(block) {
 
   const isCtor = !!(block.parts && block.parts.length);
   const isDefense = (block.section || 'defense') === 'defense' || isCtor;
-  // правка с ИИ и перегенерация живут иконками в верхнем ряду колонки;
-  // здесь — только кнопки с подписями по составу блока
+  // правка с ИИ и перегенерация — иконками в верхнем ряду; аргументы, практика,
+  // нормы и доказательства редактируются внутри конструктора (в основаниях аргументов),
+  // поэтому кнопок-дублей здесь нет; сигнал о нехватке доказательств — слева в маргиналии
   const barBtns = [];
 
-  if (isDefense && isCtor) {
-    const argsCount = (block.argsList || []).length;
-    if (blockLacksEvidence(block)) barBtns.push(['scroll-evidence', 'Не хватает доказательств', true]);
-    barBtns.push(
-      ['args-modal', argsCount ? 'Аргументы и доводы: ' + argsCount : 'Нет аргументов и доводов', !argsCount],
-      ['practice-modal', 'Практика', false]
-    );
-  } else if (isDefense && block.kind === 'manual') {
+  if (isDefense && !isCtor && block.kind === 'manual') {
     // новый пустой блок: выбор линии активен (после выбора сменить нельзя — только удалить блок)
     barBtns.push(['pick-line', 'Выбрать линию защиты', true]);
   }
@@ -1064,9 +1058,11 @@ function renderBlocks() {
     el.dataset.blockId = block.id;
     el.title = issuesOk ? '' : issues.join('; ');
 
-    // ЛЕВАЯ колонка — маргиналия: всегда только короткое название раздела,
-    // детали (эпизод, тезис, счётчики) раскрываются у активного/наведённого блока
+    // ЛЕВАЯ колонка — маргиналия: короткое название раздела и, если чего-то не
+    // хватает, жёлтая метка-переход к проблемному месту; детали (эпизод, тезис)
+    // раскрываются у активного/наведённого блока
     const details = blockDetails(block);
+    const needsEv = blockLacksEvidence(block);
     const info = document.createElement('div');
     info.className = 'doc-info';
     info.contentEditable = 'false';
@@ -1075,7 +1071,15 @@ function renderBlocks() {
         <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
         <span class="doc-info__title" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockLead(block)}</span>
       </div>
+      ${needsEv ? `<button class="doc-info__alert" data-h="needs-ev" title="Показать аргумент без доказательства">Не хватает доказательств</button>` : ''}
       ${details.length ? `<div class="doc-info__details">${details.map(d => `<span>${d}</span>`).join('')}</div>` : ''}`;
+
+    info.querySelector('[data-h="needs-ev"]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      setActiveBlock(block.id);
+      if (state.busy) return;
+      scrollToNeedyArg(block);
+    });
 
     // ПРАВАЯ колонка: служебный ряд (свернуть/удалить) + кнопки действий с подписями
     const act = document.createElement('div');
