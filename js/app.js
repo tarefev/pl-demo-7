@@ -88,11 +88,9 @@ function resetDemo(tabIndex) {
   autosize();
   setBusy(false);
 
-  const cb = $('#text-only-cb');
-  if (cb) {
-    cb.checked = false;
-    document.body.classList.remove('text-only');
-  }
+  document.body.classList.remove('text-only');
+  const vt = $('#view-toggle');
+  if (vt) vt.classList.add('is-on');
 
   topbarTitleEl.textContent = 'Новый документ';
   docTitleEl.textContent = 'Новый документ';
@@ -314,6 +312,23 @@ function buildConstructor(block) {
     });
     ctor.appendChild(sub);
   });
+
+  /**
+   * Главный сигнал конструктора: состав изменён, а текст блока остался прежним.
+   * Стоит внизу конструктора — прямо на границе с текстом, который устарел.
+   */
+  if (block.dirty) {
+    const stale = document.createElement('div');
+    stale.className = 'doc-stale';
+    stale.innerHTML = `
+      <span>Текст блока не соответствует конструктору</span>
+      <button type="button">Обновить текст</button>`;
+    stale.querySelector('button').addEventListener('click', e => {
+      e.stopPropagation();
+      onRegenerateClick(block);
+    });
+    ctor.appendChild(stale);
+  }
   return ctor;
 }
 
@@ -422,8 +437,27 @@ function buildGroundsEl(block, arg) {
     <span class="gr-add${arg.addOpen ? ' is-open' : ''}">
       <button type="button" class="gr-add__toggle" title="Норма, практика или обстоятельство">+ Основание</button>
       <span class="gr-add__types">${['norm', 'practice', 'circumstance'].map(t =>
-        `<button type="button" data-gt="${t}">${GROUND_LABELS[t]}</button>`).join('')}</span>
+        `<button type="button" data-gt="${t}">${GROUND_LABELS[t]}</button>`).join('')}
+        <input type="text" class="gr-add__quick" placeholder="или впишите норму: ч. 1 ст. 158 УК РФ">
+      </span>
     </span>`;
+
+  // быстрый ввод нормы с клавиатуры — без попапа выбора
+  const quick = addRow.querySelector('.gr-add__quick');
+  quick?.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key !== 'Enter') return;
+    const val = quick.value.trim();
+    if (!val) return;
+    arg.grounds = arg.grounds || [];
+    arg.grounds.push({ type: 'norm', text: val });
+    arg.groundsOpen = true;
+    arg.addOpen = false;
+    block.dirty = true;
+    syncArgsPart(block);
+    renderBlocks();
+  });
+  quick?.addEventListener('click', e => e.stopPropagation());
 
   // раскрытие списка типов основания
   addRow.querySelector('.gr-add__toggle')?.addEventListener('click', e => {
@@ -860,6 +894,16 @@ function buildArgsEditor(block) {
       syncArgsPart(block);
       markDirty(block, 'Доводы', 'arguments');
     });
+    // клавиатура: Enter — следующий довод, Tab — к кнопкам оснований этого довода
+    text.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        focusNewArg(block);
+      } else if (e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        document.querySelector(`.doc-block[data-block-id="${block.id}"] .doc-arg__grounds:nth-of-type(${i + 1}) button[data-gt="evidence"]`)?.focus();
+      }
+    });
     item.querySelector('.doc-arg__del').addEventListener('click', e => {
       e.stopPropagation();
       block.argsList.splice(i, 1);
@@ -907,12 +951,12 @@ function buildArgsEditor(block) {
     if (ARGS_MODE === 'tree') wrap.appendChild(buildGroundsEl(block, arg));
   });
 
-  // постоянный пустой аргумент-плейсхолдер вместо кнопки добавления
+  // постоянный пустой довод-плейсхолдер вместо кнопки добавления
   const empty = document.createElement('div');
   empty.className = 'doc-arg doc-arg--empty';
   empty.innerHTML = `
     <span class="doc-arg__grip" style="visibility:hidden">⋮⋮</span>
-    <div class="doc-arg__main"><div class="doc-arg__text" contenteditable="true" data-ph="${ARGS_MODE === 'flat' ? 'Добавьте свой аргумент и его основания (факт, норма, практика)' : 'Добавьте свой аргумент'}"></div></div>`;
+    <div class="doc-arg__main"><div class="doc-arg__text" contenteditable="true" data-ph="${ARGS_MODE === 'flat' ? 'Добавьте свой довод и его основания (норма, практика, доказательство)' : 'Добавьте свой довод — Enter создаст следующий'}"></div></div>`;
   const emptyText = empty.querySelector('.doc-arg__text');
   emptyText.addEventListener('input', () => {
     const val = emptyText.innerText.trim();
@@ -921,7 +965,7 @@ function buildArgsEditor(block) {
     block.argsList.push({ text: val, source: null, auto: false, poolIdx: null, grounds: [] });
     syncArgsPart(block);
     markDirty(block, 'Доводы', 'arguments');
-    // элемент становится настоящим аргументом, ниже появляется новый пустой
+    // элемент становится настоящим доводом, ниже появляется новый пустой
     renderBlocks();
     const items = document.querySelectorAll(`.doc-block[data-block-id="${block.id}"] .doc-arg:not(.doc-arg--empty) .doc-arg__text`);
     const lastReal = items[items.length - 1];
@@ -935,10 +979,31 @@ function buildArgsEditor(block) {
       s.addRange(r);
     }
   });
+  // Enter в пустом поле — сразу перейти к следующему доводу
+  emptyText.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (emptyText.innerText.trim()) focusNewArg(block);
+    }
+  });
   empty.addEventListener('click', e => e.stopPropagation());
   wrap.appendChild(empty);
 
   return wrap;
+}
+
+/** Enter в доводе: создаём следующий пустой и ставим в него курсор. */
+function focusNewArg(block) {
+  const el = document.querySelector(`.doc-block[data-block-id="${block.id}"] .doc-arg--empty .doc-arg__text`);
+  if (!el) return;
+  el.focus();
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  r.collapse(false);
+  const s = getSelection();
+  s.removeAllRanges();
+  s.addRange(r);
+  el.scrollIntoView({ block: 'nearest' });
 }
 
 /** Обновление аргументов после изменения связанных данных (источников). */
@@ -1041,6 +1106,19 @@ function markDirty(block, what, partKey) {
     btn.disabled = false;
     btn.classList.add('is-on');
     btn.title = 'Перегенерировать текст по данным конструктора';
+  }
+  // предупреждение «текст не соответствует конструктору» — сразу, без перерисовки
+  // (перерисовка увела бы курсор из поля, которое пользователь правит)
+  const ctor = document.querySelector(`.doc-block[data-block-id="${block.id}"] .doc-constructor`);
+  if (ctor && !ctor.querySelector('.doc-stale')) {
+    const stale = document.createElement('div');
+    stale.className = 'doc-stale';
+    stale.innerHTML = '<span>Текст блока не соответствует конструктору</span><button type="button">Обновить текст</button>';
+    stale.querySelector('button').addEventListener('click', e => {
+      e.stopPropagation();
+      onRegenerateClick(block);
+    });
+    ctor.appendChild(stale);
   }
   // связанные с аргументами подблоки изменились — аргументы требуют обновления
   if (partKey && partKey !== 'arguments' && ['norms', 'practice', 'circumstances', 'other', 'evidence'].includes(partKey)) {
@@ -4023,23 +4101,21 @@ refreshAiButton();
 
 /* ================= Режим «только текст документа» ================= */
 
-const textOnlyCb = $('#text-only-cb');
-textOnlyCb.addEventListener('change', () => {
-  document.body.classList.toggle('text-only', textOnlyCb.checked);
-});
+// столбец кнопок фиксирован справа (переключатель стороны убран)
+document.body.classList.add('ctrl-right');
 
-/* Сторона столбца управления блоками; выбор переживает перезагрузку. */
-const ctrlSideBtns = { left: $('#ctrl-side-left'), right: $('#ctrl-side-right') };
-function applyCtrlSide(side) {
-  document.body.classList.toggle('ctrl-left', side === 'left');
-  document.body.classList.toggle('ctrl-right', side === 'right');
-  ctrlSideBtns.left.classList.toggle('is-on', side === 'left');
-  ctrlSideBtns.right.classList.toggle('is-on', side === 'right');
-  localStorage.setItem('ctrl_side', side);
+// тумблер вида в тулбаре: нажат (по умолчанию) = показаны колонки блоков,
+// отжат = только текст документа
+const viewToggle = $('#view-toggle');
+function applyViewMode(full) {
+  document.body.classList.toggle('text-only', !full);
+  viewToggle.classList.toggle('is-on', full);
+  viewToggle.title = full
+    ? 'Показаны колонки блоков — нажмите, чтобы оставить только текст документа'
+    : 'Только текст документа — нажмите, чтобы показать колонки блоков';
 }
-ctrlSideBtns.left.addEventListener('click', () => applyCtrlSide('left'));
-ctrlSideBtns.right.addEventListener('click', () => applyCtrlSide('right'));
-applyCtrlSide(localStorage.getItem('ctrl_side') === 'left' ? 'left' : 'right');
+viewToggle.addEventListener('click', () => applyViewMode(!viewToggle.classList.contains('is-on')));
+applyViewMode(true);
 
 /* ================= Шапка ================= */
 
