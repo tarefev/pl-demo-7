@@ -15,8 +15,8 @@
   --shadow: 0 1px 3px rgba(20, 24, 40, .07), 0 8px 24px rgba(20, 24, 40, .05);
   /* три колонки: маргиналия с названием раздела и узкий столбец иконок действий */
   --info-w: 150px;
-  /* правая колонка: два ряда по две иконки вплотную */
-  --act-w: 64px;
+  /* правая колонка: два ряда иконок 34px; в верхнем корзина отбита разделителем */
+  --act-w: 88px;
   --col-gap: 12px;
   --info-col: calc(var(--info-w) + var(--col-gap));
   --act-col: calc(var(--act-w) + var(--col-gap));
@@ -313,7 +313,8 @@ button {
   display: flex;
   align-items: flex-start;
   gap: var(--col-gap);
-  padding: 6px 0 10px;
+  /* интервал между блоками — как между абзацами документа, не как между карточками */
+  padding: 1px 0 3px;
   line-height: 1.6;
   outline: none;
   cursor: text;
@@ -520,17 +521,35 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   padding: 2px 0 0;
   cursor: default;
 }
-/* два ряда: сверху правка и удаление (у всех блоков), снизу — про конструктор */
+/**
+ * Два ряда. Верхний есть у всех блоков и держит два стабильных якоря:
+ * ✦ИИ всегда первый слева, 🗑 всегда последний у правого края — мышечная
+ * память «начать слева, удалить у края». Между ними распорка и разделитель,
+ * чтобы корзина не оказалась в одном движении от рабочих кнопок.
+ * Нижний ряд — содержательные действия по конструктору, прижаты влево.
+ */
 .doc-act__row {
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
   gap: 2px;
 }
+.doc-act__row--ctor { justify-content: flex-start; }
+/* разделитель перед корзиной */
+.doc-act__row .head-ic--del {
+  position: relative;
+  margin-left: 10px;
+}
+.doc-act__row .head-ic--del::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border-strong);
+}
 /* перегенерация: акцентная, пока конструктор не изменён — приглушена */
-.head-ic--regen { color: var(--accent); }
-.head-ic--regen:hover { background: var(--accent-soft-2); }
-.head-ic--regen:disabled { color: #c9cede; cursor: default; background: none; }
 .doc-act .doc-block__meta {
   margin-top: 0;
   padding-top: 0;
@@ -588,19 +607,52 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* иконка-действие: подложка даёт форму кнопки, размер — комфортное попадание */
 .head-ic {
   flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #5b6270;
+  background: #f4f5f9;
+  border: 1px solid transparent;
+  transition: background .15s, color .15s, border-color .15s, opacity .15s;
 }
-.head-ic:hover { background: #eef0f4; }
-.head-ic svg { width: 15px; height: 15px; transition: transform .15s; }
-.head-ic--del:hover { background: #fdf0f0; color: var(--danger); }
+.head-ic:hover { background: #e8eaf1; }
+.head-ic svg { width: 18px; height: 18px; transition: transform .15s; }
+/* удаление необратимо — в покое приглушено, проявляется при работе с блоком */
+.head-ic--del { opacity: .45; }
+.doc-block:hover .head-ic--del,
+.doc-block.is-active .head-ic--del { opacity: 1; }
+.head-ic--del:hover { background: #fdf0f0; border-color: #f5d5d5; color: var(--danger); }
+
+/* опорное действие блока — синим постоянно */
+.head-ic--ai {
+  color: var(--accent);
+  background: var(--accent-soft-2);
+  border-color: #e3e9fd;
+}
+.head-ic--ai:hover { background: var(--accent-soft); }
+/**
+ * Перегенерация — цвет как состояние: пока конструктор не тронут, кнопка
+ * приглушена и неактивна; после правок становится залитой синей — сама
+ * сообщает «текст устарел, обновите».
+ */
+.head-ic--regen {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.head-ic--regen:hover { background: #2f49d1; }
+.head-ic--regen:disabled {
+  color: #c9cede;
+  background: #f4f5f9;
+  border-color: transparent;
+  cursor: default;
+}
 .doc-block.is-dragging { opacity: .45; }
 .doc-block.is-drop-target { box-shadow: inset 0 3px 0 var(--accent); }
 .doc-block__content { outline: none; }
@@ -1096,7 +1148,7 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 /* --- Точки вставки нового блока (итерация 4) --- */
 .doc-insert {
   position: relative;
-  height: 12px;
+  height: 6px;
 }
 .doc-insert__line {
   position: absolute;
