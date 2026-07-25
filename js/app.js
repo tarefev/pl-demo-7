@@ -149,25 +149,29 @@ function buildBlockMeta(block) {
     if (blockLacksEvidence(block)) barBtns.push(['scroll-evidence', 'Не хватает доказательств', true, '']);
     barBtns.push(
       ['args-modal', argsCount ? 'Аргументы и доводы: ' + argsCount : 'Нет аргументов и доводов', !argsCount, ''],
-      ['practice-modal', 'Практика', false, ''],
-      ['rewrite', 'Редактировать с ИИ', false, '']
+      ['practice-modal', 'Практика', false, '']
     );
   } else if (isDefense && block.kind === 'manual') {
     // новый пустой блок: выбор линии активен (после выбора сменить нельзя — только удалить блок)
-    barBtns = [
-      ['pick-line', 'Выбрать линию защиты', true, ''],
-      ['rewrite', 'Редактировать с ИИ', false, '']
-    ];
+    barBtns = [['pick-line', 'Выбрать линию защиты', true, '']];
   } else {
-    barBtns = [['rewrite', 'Редактировать с ИИ', false, '']];
+    // у секций своих кнопок нет — только «Редактировать с ИИ» (добавляется отдельно)
+    barBtns = [];
   }
 
   const rightHtml = isCtor ? `
     <button class="meta-regen" data-special="regen" ${block.dirty ? '' : 'disabled'}>Перегенерировать</button>` : '';
 
+  // «Редактировать с ИИ» — главная кнопка правки: карандаш с ИИ-звёздочкой, крупная и яркая
+  const aiBtnHtml = `
+    <button data-tool="rewrite" class="meta-ai" title="Редактировать с ИИ">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 3.5a2.4 2.4 0 1 1 3.4 3.4L8.4 18.4 3.6 20.4l1.9-4.8Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="m18.6 12.4.85 2.15 2.15.85-2.15.85-.85 2.15-.85-2.15-2.15-.85 2.15-.85z" fill="currentColor"/></svg>
+      Редактировать с ИИ
+    </button>`;
+
   meta.innerHTML = `
     <div class="doc-block__tools">
-      <div class="doc-block__tools-left">${barBtns.map(([id, label, warn, cls]) =>
+      <div class="doc-block__tools-left">${aiBtnHtml}${barBtns.map(([id, label, warn, cls]) =>
         `<button data-tool="${id}" class="${warn ? 'meta-btn--warn' : ''} ${cls}" title="${label}">${label}</button>`).join('')}</div>
       <div class="doc-block__tools-right">${rightHtml}</div>
     </div>`;
@@ -198,13 +202,38 @@ function buildBlockMeta(block) {
   return meta;
 }
 
-/** Короткая сводка блока для первой строки (по образу отчёта в чате). */
+/**
+ * Смысловое название блока — заголовок-якорь вместо «Блок N».
+ * Для секций — название раздела, для защитной части — линия защиты.
+ */
+function blockTitle(block) {
+  const sec = block.section || 'defense';
+  if (block.kind === 'legal-grounds') return 'Правовые основания';
+  const titles = { verdict: 'Описание приговора', facts: 'Обстоятельства дела', admission: 'Позиция по приговору', law: 'Правовое обоснование' };
+  if (sec !== 'defense') return titles[sec] || 'Текст документа';
+  const line = state.card.lines.find(l => l.id === block.lineId) || null;
+  if (line) return shortLineTitle(line.title);
+  return block.kind === 'manual' ? 'Новый блок защиты' : 'Блок защиты';
+}
+
+/** Цветовой индикатор блока по разделу документа. */
+function blockTone(block) {
+  if (block.kind === 'legal-grounds') return 'grounds';
+  return block.section || 'defense';
+}
+
+/** Короткая сводка блока под заголовком (без дублей с названием). */
 function blockSummary(block) {
   const sec = block.section || 'defense';
-  if (block.kind === 'legal-grounds') return 'Правовые основания апелляции';
+  if (block.kind === 'legal-grounds') return 'Стандартный правовой блок апелляции';
   if (sec !== 'defense' || !(block.parts && block.parts.length)) {
-    const titles = { verdict: 'Описание судебного акта', facts: 'Обстоятельства дела', admission: 'Позиция по приговору', law: 'Правовое обоснование' };
-    return titles[sec] || 'Текстовый блок';
+    const subs = {
+      verdict: 'Судебный акт первой инстанции',
+      facts: 'Фабула по эпизодам дела',
+      admission: 'Отношение к приговору по эпизодам',
+      law: 'Нормы в обоснование ходатайства'
+    };
+    return subs[sec] || 'Текстовый блок';
   }
   const line = state.card.lines.find(l => l.id === block.lineId) || null;
   const ep = line && line.episodeId ? state.card.episodes.findIndex(x => x.id === line.episodeId) : -1;
@@ -213,7 +242,7 @@ function blockSummary(block) {
     const short = episodeShort(state.card.episodes[ep], ep);
     bits.push(`Эпизод: ${short.length > 46 ? short.slice(0, 46) + '…' : short}`);
   }
-  bits.push(line ? `Линия: ${shortLineTitle(line.title)}` : 'Линия не привязана');
+  if (!line) bits.push('Линия не привязана');
   if (line && line.thesis) bits.push(`Тезис: ${line.thesis.split('. ')[0].slice(0, 60)}${line.thesis.length > 60 ? '…' : ''}`);
   bits.push(`Доказательств: ${(block.evidence || []).length}`);
   bits.push(`Аргументов: ${(block.argsList || []).length}`);
@@ -1039,24 +1068,19 @@ function renderBlocks() {
     el.className = 'doc-block' + (block.id === state.activeBlockId ? ' is-active' : '');
     el.dataset.blockId = block.id;
 
-    // столбец управления блоком: номер, статус, сводка и все кнопки — вне текста
+    // правая колонка — только кнопки: свернуть/развернуть, удалить, действия
     const ctrl = document.createElement('div');
     ctrl.className = 'doc-ctrl';
     ctrl.contentEditable = 'false';
     ctrl.innerHTML = `
       <div class="doc-ctrl__row">
-        <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
-        <span class="doc-block__num">${block.label}</span>
         ${isCtor ? `<button class="head-ic" data-h="toggle" title="${block.constructorDone ? 'Открыть конструктор' : 'Закрыть конструктор'}">
           <svg viewBox="0 0 24 24" style="transform: rotate(${block.constructorDone ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>` : ''}
         <button class="head-ic head-ic--del" data-h="delete" title="Удалить блок">
           <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-.7 12.1a2 2 0 0 1-2 1.9H8.7a2 2 0 0 1-2-1.9L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <span class="doc-block__status ${issuesOk ? 'is-done' : ''}"
-              title="${issuesOk ? 'Готово' : 'По сводке блока чего-то не хватает'}"></span>
-      </div>
-      <div class="doc-ctrl__summary" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockSummary(block)}</div>`;
+      </div>`;
     ctrl.appendChild(buildBlockMeta(block));
 
     ctrl.querySelector('[data-h="toggle"]')?.addEventListener('click', e => {
@@ -1068,8 +1092,21 @@ function renderBlocks() {
       confirmDeleteBlock(block);
     });
 
+    // заголовок-якорь блока в самом тексте: статус, смысловое название, сводка
+    const head = document.createElement('div');
+    head.className = `doc-anchor doc-anchor--${blockTone(block)}`;
+    head.contentEditable = 'false';
+    head.innerHTML = `
+      <div class="doc-anchor__row">
+        <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
+        <span class="doc-block__status ${issuesOk ? 'is-done' : ''}"
+              title="${issuesOk ? 'Готово' : 'По сводке блока чего-то не хватает'}"></span>
+        <span class="doc-anchor__title">${blockTitle(block)}</span>
+      </div>
+      <div class="doc-anchor__sub" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockSummary(block)}</div>`;
+
     // перетаскивание блока за ручку
-    const grip = ctrl.querySelector('.doc-block__grip');
+    const grip = head.querySelector('.doc-block__grip');
     grip.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/block-id', block.id);
       e.dataTransfer.effectAllowed = 'move';
@@ -1097,11 +1134,12 @@ function renderBlocks() {
       addMessage('assistant', `${dragged.label} перемещён.`);
     });
 
-    // тело блока: скобка сбоку связывает его со столбцом управления
+    // две колонки: [текст с заголовком-якорем] [кнопки]
     const body = document.createElement('div');
     body.className = 'doc-block__body';
-    el.appendChild(ctrl);
+    body.appendChild(head);
     el.appendChild(body);
+    el.appendChild(ctrl);
 
     if (isCtor) {
       // конструкторный блок: конструктор (если открыт) -> сгенерированный текст
@@ -3936,7 +3974,7 @@ function applyCtrlSide(side) {
 }
 ctrlSideBtns.left.addEventListener('click', () => applyCtrlSide('left'));
 ctrlSideBtns.right.addEventListener('click', () => applyCtrlSide('right'));
-applyCtrlSide(localStorage.getItem('ctrl_side') === 'right' ? 'right' : 'left');
+applyCtrlSide(localStorage.getItem('ctrl_side') === 'left' ? 'left' : 'right');
 
 /* ================= Шапка ================= */
 

@@ -303,7 +303,7 @@ body.ctrl-right .doc-add-block { width: calc(100% - var(--ctrl-col)); }
   outline: none;
 }
 
-/* --- Блоки документа: [столбец управления] [текст со скобкой], без разделителей --- */
+/* --- Блоки документа: [текст с якорем] [колонка кнопок], без разделителей --- */
 .doc-block {
   position: relative;
   display: flex;
@@ -314,7 +314,8 @@ body.ctrl-right .doc-add-block { width: calc(100% - var(--ctrl-col)); }
   outline: none;
   cursor: text;
 }
-body.ctrl-right .doc-block { flex-direction: row-reverse; }
+/* переключалка «Кнопки: слева» уводит колонку кнопок влево от текста */
+body.ctrl-left .doc-block { flex-direction: row-reverse; }
 
 /* sticky-обёртка: метка и статус прилипают при скролле длинного блока */
 .doc-block__pin {
@@ -361,11 +362,60 @@ body.ctrl-right .doc-block { flex-direction: row-reverse; }
   background: var(--border-strong);
   transition: background .15s;
 }
-body.ctrl-right .doc-block__body { padding-left: 0; padding-right: 14px; }
-body.ctrl-right .doc-block__body::before { left: auto; right: 0; }
+body.ctrl-left .doc-block__body { padding-left: 0; padding-right: 14px; }
+body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
 .doc-block:hover .doc-block__body::before { background: #aeb6c6; }
 .doc-block.is-active .doc-block__body::before { background: var(--accent); }
 .doc-block.is-active .doc-block__body { background: var(--accent-soft-2); border-radius: 6px; }
+
+/* --- Заголовок-якорь блока: смысловое название + сводка, цвет по разделу --- */
+.doc-anchor {
+  --tone: #6b7280;
+  margin: 0 0 8px;
+  cursor: default;
+  user-select: none;
+}
+.doc-anchor--verdict { --tone: #5b6270; }
+.doc-anchor--grounds { --tone: #7c4dbe; }
+.doc-anchor--facts { --tone: #0e7787; }
+.doc-anchor--admission { --tone: #c2761a; }
+.doc-anchor--defense { --tone: var(--accent); }
+.doc-anchor--law { --tone: #1d7a4b; }
+.doc-anchor__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.doc-anchor__title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--tone);
+  letter-spacing: -.01em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-anchor__sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  padding-left: 26px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* якорь блока прилипает при скролле длинного блока */
+.doc-anchor {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+  padding-top: 4px;
+}
+.doc-block.is-active .doc-anchor { background: var(--accent-soft-2); }
+.doc-anchor .doc-block__status { position: static; flex: none; }
 
 .doc-block__status {
   position: absolute;
@@ -442,20 +492,11 @@ body.ctrl-right .doc-block__body::before { left: auto; right: 0; }
   cursor: default;
   font-size: 13px;
 }
+/* ряд пиктограмм: свернуть/развернуть и удалить — у края текста */
 .doc-ctrl__row {
   display: flex;
   align-items: center;
   gap: 5px;
-}
-.doc-ctrl__row .doc-block__num { flex: 1; text-align: center; }
-.doc-ctrl__summary {
-  font-size: 11px;
-  line-height: 1.45;
-  color: #5b6270;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 /* кнопки действий в столбце — вертикально, во всю ширину */
 .doc-ctrl .doc-block__meta {
@@ -899,6 +940,32 @@ body.ctrl-right .doc-block__body::before { left: auto; right: 0; }
   content: attr(data-ph);
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* «Редактировать с ИИ» — главная кнопка правки: яркая, крупная, с ✦-карандашом */
+.doc-block__tools .meta-ai {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(61, 90, 241, .28);
+}
+.doc-block__tools .meta-ai:hover {
+  background: #2f49d1;
+  border-color: #2f49d1;
+  box-shadow: 0 3px 12px rgba(61, 90, 241, .38);
+}
+.doc-block__tools .meta-ai svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 .doc-block__tools .meta-regen {
@@ -1916,7 +1983,8 @@ body.text-only .doc-empty,
 body.text-only .page__add-image { display: none !important; }
 
 /* только текст: столбец управления и скобки скрыты, текст на всю ширину */
-body.text-only .doc-ctrl { display: none !important; }
+body.text-only .doc-ctrl,
+body.text-only .doc-anchor { display: none !important; }
 body.text-only .doc-block { padding: 8px 0; }
 body.text-only .doc-block__body { padding-left: 0 !important; padding-right: 0 !important; }
 body.text-only .doc-block__body::before { display: none; }
