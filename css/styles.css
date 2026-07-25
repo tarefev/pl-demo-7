@@ -15,7 +15,7 @@
   --shadow: 0 1px 3px rgba(20, 24, 40, .07), 0 8px 24px rgba(20, 24, 40, .05);
   /* три колонки: маргиналия с названием раздела и узкий столбец иконок действий */
   --info-w: 150px;
-  /* правая колонка: два ряда иконок 28px; в верхнем корзина отбита зазором */
+  /* правая колонка: иконки сеткой 2×2 (28px); удаление — в правом-нижнем углу */
   --act-w: 74px;
   --col-gap: 12px;
   --info-col: calc(var(--info-w) + var(--col-gap));
@@ -538,7 +538,7 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   padding: 2px 0 0;
   cursor: default;
 }
@@ -554,7 +554,7 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   grid-template-columns: auto auto;
   justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 /* перегенерация: акцентная, пока конструктор не изменён — приглушена */
 .doc-act .doc-block__meta {
