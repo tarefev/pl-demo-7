@@ -425,7 +425,8 @@ body.ctrl-left .doc-block.is-short .doc-block__body::before {
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  /* заголовки подблоков читаются как рубрики конструктора, а не как фон */
+  color: #5b6270;
   margin-bottom: 3px;
 }
 .doc-sub__body {
@@ -788,7 +789,8 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  /* на ступень светлее рубрик подблоков — это подпись внутри довода */
+  color: #6b7280;
   margin-bottom: 1px;
 }
 .doc-ground {
