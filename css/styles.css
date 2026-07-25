@@ -708,23 +708,21 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   color: var(--text-muted);
   font-style: italic;
 }
+/* откуда подобран довод: спокойный бейдж, подробности — в подсказке */
 .doc-arg__src {
   flex: none;
   font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--accent);
-  background: var(--accent-soft-2);
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: #6b7280;
+  background: #f1f2f6;
   border-radius: 5px;
-  padding: 2px 6px;
+  padding: 2px 7px;
   margin-top: 2px;
   white-space: nowrap;
+  cursor: help;
 }
-.doc-arg__src--manual {
-  color: var(--text-muted);
-  background: #f1f2f6;
-}
+.doc-arg__src--manual { color: var(--text-muted); }
 .doc-arg__del {
   flex: none;
   width: 20px;
@@ -773,21 +771,45 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   line-height: 1.5;
 }
 
+/* группа оснований: вертикаль-связка от довода вниз, у каждой строки — усик */
 .doc-arg__grounds {
+  position: relative;
   margin: -2px 0 2px 26px;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  border-left: 2px solid #e3e9fd;
-  padding-left: 10px;
+  border-left: 1px solid #d7dae3;
+  padding-left: 12px;
 }
 .doc-arg__grounds.is-collapsed { display: none; }
+/* подпись группы: связь «довод → чем подтверждается» проговорена словом */
+.doc-grounds__cap {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 1px;
+}
 .doc-ground {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 7px;
   font-size: 12px;
+  cursor: default;
 }
+/* усик-связка к вертикали группы */
+.doc-ground::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 10px;
+  width: 8px;
+  height: 1px;
+  background: #d7dae3;
+}
+/* ярлык типа: нейтральный, чтобы девять оснований не пестрили */
 .doc-ground__type {
   flex: none;
   font-size: 9.5px;
@@ -796,28 +818,20 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   border-radius: 4px;
   padding: 2px 6px;
   margin-top: 1px;
+  background: #f1f2f6;
+  color: #6b7280;
 }
-.doc-ground__type--fact { background: #e8f7ef; color: #1d7a4b; }
-.doc-ground__type--norm { background: var(--accent-soft); color: var(--accent); }
-.doc-ground__type--practice { background: #f3ecfd; color: #7c4dbe; }
+/* цветом выделен только тот тип, вокруг которого идёт работа — доказательство */
 .doc-ground__type--evidence { background: #e6f6f8; color: #0e7787; }
-.doc-ground__type--circumstance { background: #fdf3e0; color: #9a6b00; }
-.doc-ground { cursor: default; }
 .doc-ground.is-dragging { opacity: .5; }
 .doc-ground.is-drop-target { box-shadow: inset 0 2px 0 var(--accent); }
 .doc-ground__type { cursor: grab; }
 
-/* аргумент без доказательства — в тон жёлтой кнопке и полосе блока */
+/* довод без доказательства — подсвечен сам довод; кнопку дублировать цветом не нужно */
 .doc-arg--needs-ev { border-color: var(--warn); background: #fdf3e0; }
 
 /* сплит-кнопка «+ Доказательство | не нужны» */
 .ev-split { display: inline-flex; }
-.ev-split.is-hot button[data-gt="evidence"] {
-  border-color: #f0b429;
-  color: #9a6b00;
-  background: #fdf3e0;
-  border-style: solid;
-}
 .ev-split__skip {
   display: none;
   font-size: 10.5px;
@@ -854,6 +868,16 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   color: var(--text-muted);
   font-style: italic;
 }
+/* пока не заполнено и не в фокусе — свёрнуто в тихую строку-приглашение */
+.doc-ground__proves.is-empty {
+  padding: 1px 0 1px 10px;
+  background: none;
+  border: none;
+  border-left: 1px dashed #cfe8ec;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.doc-ground__proves.is-empty:hover { color: #0e7787; border-left-color: #0e7787; }
 .doc-ground__warn {
   font-size: 11.5px;
   color: #9a6b00;
@@ -861,7 +885,7 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   border-radius: 6px;
   padding: 4px 8px;
 }
-.doc-ground__add { display: flex; gap: 5px; }
+.doc-ground__add { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
 .doc-ground__add button {
   font-size: 10.5px;
   color: var(--text-muted);
@@ -870,6 +894,32 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   padding: 2px 8px;
 }
 .doc-ground__add button:hover { color: var(--accent); border-color: var(--accent); }
+
+/* «+ Основание»: типы (норма, практика, обстоятельство) раскрываются по клику,
+   чтобы у каждого довода не стояло четыре кнопки подряд */
+.gr-add { display: inline-flex; align-items: center; gap: 5px; }
+.gr-add__types { display: none; gap: 5px; }
+.gr-add.is-open .gr-add__types { display: inline-flex; }
+.gr-add.is-open .gr-add__toggle { color: var(--accent); border-color: var(--accent); border-style: solid; }
+.gr-add__types button { border-style: solid; }
+
+/* заголовок подблока доводов + «свернуть/развернуть все» */
+.doc-sub__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.doc-sub__head .doc-sub__title { margin-bottom: 0; }
+.doc-sub__foldall {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.doc-sub__foldall:hover { color: var(--accent); background: var(--accent-soft-2); }
 
 /* группы в модалке аргументов */
 .args-group { display: flex; flex-direction: column; gap: 8px; }

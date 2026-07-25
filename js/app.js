@@ -273,12 +273,25 @@ function buildConstructor(block) {
     sub.className = 'doc-sub';
 
     if (part.key === 'arguments') {
-      sub.innerHTML = `<div class="doc-sub__title" contenteditable="false">${part.title}</div>`;
+      // «свернуть/развернуть всё» — обзор структуры позиции без прокрутки
+      const anyOpen = (block.argsList || []).some(a => a.groundsOpen !== false && (a.grounds || []).length);
+      sub.innerHTML = `
+        <div class="doc-sub__head">
+          <span class="doc-sub__title" contenteditable="false">${part.title}</span>
+          ${(block.argsList || []).some(a => (a.grounds || []).length)
+            ? `<button class="doc-sub__foldall" type="button" data-open="${anyOpen ? '1' : '0'}">${anyOpen ? 'Свернуть все' : 'Развернуть все'}</button>` : ''}
+        </div>`;
+      sub.querySelector('.doc-sub__foldall')?.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = e.currentTarget.dataset.open !== '1';
+        (block.argsList || []).forEach(a => { a.groundsOpen = open; });
+        renderBlocks();
+      });
       sub.appendChild(buildArgsEditor(block));
       sub.addEventListener('click', e => {
         e.stopPropagation();
         setActiveBlock(block.id);
-        setActiveSubpart({ blockId: block.id, key: 'arguments', title: 'Аргументы и доводы' });
+        setActiveSubpart({ blockId: block.id, key: 'arguments', title: 'Доводы' });
       });
       ctor.appendChild(sub);
       return;
@@ -309,13 +322,23 @@ function buildGroundsEl(block, arg) {
   const g = document.createElement('div');
   g.className = 'doc-arg__grounds' + (arg.groundsOpen === false ? ' is-collapsed' : '');
 
+  // подпись группы: явно проговариваем связь «довод → чем подтверждается»
+  if ((arg.grounds || []).length) {
+    const cap = document.createElement('div');
+    cap.className = 'doc-grounds__cap';
+    cap.textContent = 'Подтверждается';
+    g.appendChild(cap);
+  }
+
   (arg.grounds || []).forEach((ground, gi) => {
     const row = document.createElement('div');
     row.className = 'doc-ground' + (ground.type === 'evidence' ? ' doc-ground--evidence' : '');
     row.draggable = true;
-    // под доказательством — поле «что и почему доказывает» (заполняет адвокат)
+    // под доказательством — поле «что и почему доказывает»: пока пусто и не в фокусе,
+    // сворачивается в одну строку-ссылку, чтобы не множить пустые поля
     const provesHtml = ground.type === 'evidence'
-      ? `<div class="doc-ground__proves" contenteditable="true" data-ph="Что и почему доказывает это доказательство…">${ground.proves || ''}</div>`
+      ? `<div class="doc-ground__proves${(ground.proves || '').trim() ? '' : ' is-empty'}" contenteditable="true"
+              data-ph="Пояснить, что и почему доказывает…">${ground.proves || ''}</div>`
       : '';
     row.innerHTML = `
       <span class="doc-ground__type doc-ground__type--${ground.type}" title="Перетащить основание">${GROUND_LABELS[ground.type] || ground.type}</span>
@@ -325,15 +348,19 @@ function buildGroundsEl(block, arg) {
     const txt = row.querySelector('.doc-ground__text');
     txt.addEventListener('input', () => {
       ground.text = txt.innerText;
-      markDirty(block, 'Аргументы и доводы', 'arguments');
+      markDirty(block, 'Доводы', 'arguments');
     });
     const provesEl = row.querySelector('.doc-ground__proves');
     if (provesEl) {
       provesEl.draggable = false;
       provesEl.addEventListener('input', () => {
         ground.proves = provesEl.innerText.trim();
-        markDirty(block, 'Аргументы и доводы', 'arguments');
+        provesEl.classList.toggle('is-empty', !ground.proves);
+        markDirty(block, 'Доводы', 'arguments');
       });
+      // в фокусе поле разворачивается, даже если ещё пустое
+      provesEl.addEventListener('focus', () => provesEl.classList.remove('is-empty'));
+      provesEl.addEventListener('blur', () => provesEl.classList.toggle('is-empty', !provesEl.innerText.trim()));
       // выделение текста в поле не должно инициировать перетаскивание основания
       provesEl.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); });
     }
@@ -385,14 +412,25 @@ function buildGroundsEl(block, arg) {
   const addRow = document.createElement('div');
   addRow.className = 'doc-ground__add';
   const needsEv = argNeedsEvidence(arg);
-  // сущность «Факт» убрана: факты подтверждаются доказательствами
-  addRow.innerHTML = ['norm', 'practice', 'circumstance'].map(t =>
-    `<button type="button" data-gt="${t}">+ ${GROUND_LABELS[t]}</button>`).join('') +
-    // «+ Доказательство»: при нехватке подсвечен; по наведению — вторая половинка «не нужны»
-    `<span class="ev-split${needsEv ? ' is-hot' : ''}">
+  // частый случай — доказательство — отдельной кнопкой; остальные типы прячутся
+  // за «+ Основание», чтобы у каждого довода не стояло четыре кнопки подряд
+  addRow.innerHTML = `
+    <span class="ev-split${needsEv ? ' is-hot' : ''}">
       <button type="button" data-gt="evidence">+ ${GROUND_LABELS.evidence}</button>
       ${needsEv ? '<button type="button" class="ev-split__skip" title="Снять подсветку">не нужны</button>' : ''}
+    </span>
+    <span class="gr-add${arg.addOpen ? ' is-open' : ''}">
+      <button type="button" class="gr-add__toggle" title="Норма, практика или обстоятельство">+ Основание</button>
+      <span class="gr-add__types">${['norm', 'practice', 'circumstance'].map(t =>
+        `<button type="button" data-gt="${t}">${GROUND_LABELS[t]}</button>`).join('')}</span>
     </span>`;
+
+  // раскрытие списка типов основания
+  addRow.querySelector('.gr-add__toggle')?.addEventListener('click', e => {
+    e.stopPropagation();
+    arg.addOpen = !arg.addOpen;
+    addRow.querySelector('.gr-add').classList.toggle('is-open', arg.addOpen);
+  });
 
   addRow.querySelectorAll('button[data-gt]').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -402,6 +440,7 @@ function buildGroundsEl(block, arg) {
         arg.grounds = arg.grounds || [];
         arg.grounds.push(ground);
         arg.groundsOpen = true;
+        arg.addOpen = false; // список типов сворачивается после выбора
         block.dirty = true;
         syncArgsPart(block);
         renderBlocks();
@@ -809,15 +848,17 @@ function buildArgsEditor(block) {
         ${groundsFlat}
         ${ARGS_MODE === 'flat' && argOnlyPractice(arg) ? '<div class="doc-ground__warn">Основание подкреплено только практикой — рекомендуем добавить доказательство или норму.</div>' : ''}
       </div>
-      <span class="doc-arg__src${arg.auto ? '' : ' doc-arg__src--manual'}">${arg.auto ? 'авто · ' + (SRC_LABELS[arg.source] || 'факт') : 'вручную'}</span>
-      ${ARGS_MODE === 'tree' ? `<button class="doc-arg__fold" type="button" title="Основания аргумента"><svg viewBox="0 0 24 24" style="transform: rotate(${arg.groundsOpen === false ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>` : ''}
-      <button class="doc-arg__del" title="Удалить аргумент" type="button">×</button>`;
+      <span class="doc-arg__src${arg.auto ? '' : ' doc-arg__src--manual'}"
+            title="${arg.auto ? (SRC_HINTS[arg.source] || SRC_HINTS.fact) : 'Довод добавлен вручную'}">${
+        arg.auto ? 'ИИ · ' + (SRC_LABELS[arg.source] || SRC_LABELS.fact) : 'вручную'}</span>
+      ${ARGS_MODE === 'tree' ? `<button class="doc-arg__fold" type="button" title="Свернуть или развернуть основания довода"><svg viewBox="0 0 24 24" style="transform: rotate(${arg.groundsOpen === false ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>` : ''}
+      <button class="doc-arg__del" title="Удалить довод" type="button">×</button>`;
 
     const text = item.querySelector('.doc-arg__text');
     text.addEventListener('input', () => {
       arg.text = text.innerText;
       syncArgsPart(block);
-      markDirty(block, 'Аргументы и доводы', 'arguments');
+      markDirty(block, 'Доводы', 'arguments');
     });
     item.querySelector('.doc-arg__del').addEventListener('click', e => {
       e.stopPropagation();
@@ -879,7 +920,7 @@ function buildArgsEditor(block) {
     block.argsList = block.argsList || [];
     block.argsList.push({ text: val, source: null, auto: false, poolIdx: null, grounds: [] });
     syncArgsPart(block);
-    markDirty(block, 'Аргументы и доводы', 'arguments');
+    markDirty(block, 'Доводы', 'arguments');
     // элемент становится настоящим аргументом, ниже появляется новый пустой
     renderBlocks();
     const items = document.querySelectorAll(`.doc-block[data-block-id="${block.id}"] .doc-arg:not(.doc-arg--empty) .doc-arg__text`);
@@ -1621,12 +1662,20 @@ function scrollToSection(kind) {
 }
 
 /** Метки источников аргументов. */
+/** Откуда подобран довод — человеческим языком (бейдж + расшифровка в подсказке). */
 const SRC_LABELS = {
-  practice: 'практика',
-  circumstances: 'обстоятельства',
-  norms: 'нормативка',
-  evidence: 'доказательства',
-  fact: 'факт'
+  practice: 'по практике',
+  circumstances: 'по обстоятельствам',
+  norms: 'по нормам',
+  evidence: 'по доказательствам',
+  fact: 'по фактам дела'
+};
+const SRC_HINTS = {
+  practice: 'Довод подобран автоматически по судебной практике',
+  circumstances: 'Довод подобран автоматически по обстоятельствам дела',
+  norms: 'Довод подобран автоматически по нормам права',
+  evidence: 'Довод подобран автоматически по доказательствам',
+  fact: 'Довод подобран автоматически по фактам дела'
 };
 
 /** Стартовый список аргументов по линии: первые два из пула, авто (с основаниями). */
@@ -1828,7 +1877,7 @@ function syncArgsPart(block) {
   const html = argsListToHtml(block.argsList);
   const part = block.parts.find(p => p.key === 'arguments');
   if (part) part.html = html;
-  else block.parts.splice(1, 0, { key: 'arguments', title: 'Аргументы и доводы', html });
+  else block.parts.splice(1, 0, { key: 'arguments', title: 'Доводы', html });
 }
 
 /** Подблоки конструктора по линии защиты; sel — аргументы/дела практики. */
@@ -1839,7 +1888,7 @@ function buildLineParts(line, sel = {}) {
   if (line.thesis) parts.push({ key: 'thesis', title: 'Тезис', html: line.thesis });
 
   const argsList = sel.argsList || defaultArgsList(line);
-  parts.push({ key: 'arguments', title: 'Аргументы и доводы', html: argsListToHtml(argsList) });
+  parts.push({ key: 'arguments', title: 'Доводы', html: argsListToHtml(argsList) });
 
   if (ARGS_MODE === 'flat') {
     // плоский вариант: общие подблоки остаются на уровне блока
@@ -3771,7 +3820,7 @@ function confirmLineChange(block, newLine) {
 function openArgsModal(block) {
   const line = state.card.lines.find(l => l.id === block.lineId);
   if (!line) {
-    openModal({ title: 'Аргументы и доводы', bodyHtml: 'Сначала привяжите к блоку линию защиты.', buttons: [{ label: 'Закрыть' }] });
+    openModal({ title: 'Доводы', bodyHtml: 'Сначала привяжите к блоку линию защиты.', buttons: [{ label: 'Закрыть' }] });
     return;
   }
   const pool = line.argumentsPool || [];
@@ -3793,7 +3842,7 @@ function openArgsModal(block) {
   }).join('');
 
   openModal({
-    title: `Аргументы и доводы · ${block.label}`,
+    title: `Доводы · ${block.label}`,
     context: blockModalContext(block),
     bodyHtml: (groupsHtml || 'Для этой линии аргументы не подобраны.') + freeInputSectionHtml(),
     buttons: [
