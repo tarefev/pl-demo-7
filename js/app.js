@@ -153,25 +153,20 @@ function buildBlockMeta(block) {
     );
   } else if (isDefense && block.kind === 'manual') {
     // новый пустой блок: выбор линии активен (после выбора сменить нельзя — только удалить блок)
-    barBtns = [['pick-line', 'Выбрать линию защиты', true, '']];
+    barBtns = [
+      ['pick-line', 'Выбрать линию защиты', true, '']
+    ];
   } else {
-    // у секций своих кнопок нет — только «Редактировать с ИИ» (добавляется отдельно)
+    // у секций свободных кнопок нет — «Редактировать с ИИ» живёт пиктограммой в ряду
     barBtns = [];
   }
 
   const rightHtml = isCtor ? `
     <button class="meta-regen" data-special="regen" ${block.dirty ? '' : 'disabled'}>Перегенерировать</button>` : '';
 
-  // «Редактировать с ИИ» — главная кнопка правки: карандаш с ИИ-звёздочкой, крупная и яркая
-  const aiBtnHtml = `
-    <button data-tool="rewrite" class="meta-ai" title="Редактировать с ИИ">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 3.5a2.4 2.4 0 1 1 3.4 3.4L8.4 18.4 3.6 20.4l1.9-4.8Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="m18.6 12.4.85 2.15 2.15.85-2.15.85-.85 2.15-.85-2.15-2.15-.85 2.15-.85z" fill="currentColor"/></svg>
-      Редактировать с ИИ
-    </button>`;
-
   meta.innerHTML = `
     <div class="doc-block__tools">
-      <div class="doc-block__tools-left">${aiBtnHtml}${barBtns.map(([id, label, warn, cls]) =>
+      <div class="doc-block__tools-left">${barBtns.map(([id, label, warn, cls]) =>
         `<button data-tool="${id}" class="${warn ? 'meta-btn--warn' : ''} ${cls}" title="${label}">${label}</button>`).join('')}</div>
       <div class="doc-block__tools-right">${rightHtml}</div>
     </div>`;
@@ -202,47 +197,19 @@ function buildBlockMeta(block) {
   return meta;
 }
 
-/**
- * Смысловое название блока — заголовок-якорь вместо «Блок N».
- * Для секций — название раздела, для защитной части — линия защиты.
- */
-function blockTitle(block) {
-  const sec = block.section || 'defense';
-  if (block.kind === 'legal-grounds') return 'Правовые основания';
-  const titles = { verdict: 'Описание приговора', facts: 'Обстоятельства дела', admission: 'Позиция по приговору', law: 'Правовое обоснование' };
-  if (sec !== 'defense') return titles[sec] || 'Текст документа';
-  const line = state.card.lines.find(l => l.id === block.lineId) || null;
-  if (line) return shortLineTitle(line.title);
-  return block.kind === 'manual' ? 'Новый блок защиты' : 'Блок защиты';
-}
-
-/** Цветовой индикатор блока по разделу документа. */
-function blockTone(block) {
-  if (block.kind === 'legal-grounds') return 'grounds';
-  return block.section || 'defense';
-}
-
-/** Короткая сводка блока под заголовком (без дублей с названием). */
+/** Короткая сводка блока для первой строки (по образу отчёта в чате). */
 function blockSummary(block) {
   const sec = block.section || 'defense';
-  if (block.kind === 'legal-grounds') return 'Стандартный правовой блок апелляции';
   if (sec !== 'defense' || !(block.parts && block.parts.length)) {
-    const subs = {
-      verdict: 'Судебный акт первой инстанции',
-      facts: 'Фабула по эпизодам дела',
-      admission: 'Отношение к приговору по эпизодам',
-      law: 'Нормы в обоснование ходатайства'
-    };
-    return subs[sec] || 'Текстовый блок';
+    const titles = { verdict: 'Описание судебного акта', facts: 'Обстоятельства дела', admission: 'Позиция по приговору', law: 'Правовое обоснование' };
+    if (block.kind === 'grounds') return 'Основания для отмены/изменения приговора';
+    return titles[sec] || 'Текстовый блок';
   }
   const line = state.card.lines.find(l => l.id === block.lineId) || null;
   const ep = line && line.episodeId ? state.card.episodes.findIndex(x => x.id === line.episodeId) : -1;
   const bits = [];
-  if (ep >= 0) {
-    const short = episodeShort(state.card.episodes[ep], ep);
-    bits.push(`Эпизод: ${short.length > 46 ? short.slice(0, 46) + '…' : short}`);
-  }
-  if (!line) bits.push('Линия не привязана');
+  if (ep >= 0) bits.push(cap(episodeShort(state.card.episodes[ep], ep)));
+  bits.push(line ? `Линия: ${shortLineTitle(line.title)}` : 'Линия не привязана');
   if (line && line.thesis) bits.push(`Тезис: ${line.thesis.split('. ')[0].slice(0, 60)}${line.thesis.length > 60 ? '…' : ''}`);
   bits.push(`Доказательств: ${(block.evidence || []).length}`);
   bits.push(`Аргументов: ${(block.argsList || []).length}`);
@@ -325,17 +292,32 @@ function buildGroundsEl(block, arg) {
 
   (arg.grounds || []).forEach((ground, gi) => {
     const row = document.createElement('div');
-    row.className = 'doc-ground';
+    row.className = 'doc-ground' + (ground.type === 'evidence' ? ' doc-ground--evidence' : '');
     row.draggable = true;
+    // под доказательством — поле «что и почему доказывает» (заполняет адвокат)
+    const provesHtml = ground.type === 'evidence'
+      ? `<div class="doc-ground__proves" contenteditable="true" data-ph="Что и почему доказывает это доказательство…">${ground.proves || ''}</div>`
+      : '';
     row.innerHTML = `
       <span class="doc-ground__type doc-ground__type--${ground.type}" title="Перетащить основание">${GROUND_LABELS[ground.type] || ground.type}</span>
       <span class="doc-ground__text" contenteditable="true">${ground.text}${ground.evidence ? ` <i class="doc-ground__ev">(${ground.evidence})</i>` : ''}</span>
-      <button class="doc-arg__del" title="Удалить основание" type="button">×</button>`;
+      <button class="doc-arg__del" title="Удалить основание" type="button">×</button>
+      ${provesHtml}`;
     const txt = row.querySelector('.doc-ground__text');
     txt.addEventListener('input', () => {
       ground.text = txt.innerText;
       markDirty(block, 'Аргументы и доводы', 'arguments');
     });
+    const provesEl = row.querySelector('.doc-ground__proves');
+    if (provesEl) {
+      provesEl.draggable = false;
+      provesEl.addEventListener('input', () => {
+        ground.proves = provesEl.innerText.trim();
+        markDirty(block, 'Аргументы и доводы', 'arguments');
+      });
+      // выделение текста в поле не должно инициировать перетаскивание основания
+      provesEl.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); });
+    }
     row.querySelector('.doc-arg__del').addEventListener('click', e => {
       e.stopPropagation();
       arg.grounds.splice(gi, 1);
@@ -372,23 +354,6 @@ function buildGroundsEl(block, arg) {
       renderBlocks();
     });
     g.appendChild(row);
-
-    // у доказательства — отдельное поле «что именно и почему доказывает» (заполняет адвокат)
-    if (ground.type === 'evidence') {
-      const pr = document.createElement('div');
-      pr.className = 'doc-ground__proves';
-      pr.innerHTML = `
-        <span class="doc-ground__proves-label">Что доказывает</span>
-        <span class="doc-ground__proves-text" contenteditable="true"
-              data-ph="опишите, что именно и почему подтверждает это доказательство">${ground.proves || ''}</span>`;
-      const pt = pr.querySelector('.doc-ground__proves-text');
-      pt.addEventListener('input', () => {
-        ground.proves = pt.innerText.trim();
-        markDirty(block, 'Аргументы и доводы', 'arguments');
-      });
-      pt.addEventListener('click', e => e.stopPropagation());
-      g.appendChild(pr);
-    }
   });
 
   if (argOnlyPractice(arg)) {
@@ -431,8 +396,7 @@ function buildGroundsEl(block, arg) {
       }
       if (type === 'norm') pickNormGround(block, texts => texts.forEach(t => push({ type: 'norm', text: t })));
       if (type === 'practice') pickPracticeGround(block, texts => texts.forEach(t => push({ type: 'practice', text: t })));
-      // доказательство: text — само доказательство, proves — что оно доказывает (поле в конструкторе)
-      if (type === 'evidence') pickEvidenceGround(block, items => items.forEach(o => push({ type: 'evidence', text: o.text, proves: o.proves || '' })));
+      if (type === 'evidence') pickEvidenceGround(block, items => items.forEach(it => push({ type: 'evidence', text: it.text, proves: it.proves || '' })));
       if (type === 'circumstance') pickCircumstanceGround(block, texts => texts.forEach(t => push({ type: 'circumstance', text: t })));
     });
   });
@@ -655,13 +619,13 @@ function pickEvidenceGround(block, onApply) {
     })),
     onApply: (selected, added) => {
       added.forEach(a => state.card.evidence.push(a.title));
-      // возвращаем пары {доказательство, что доказывает}: proves — отдельное поле в конструкторе
-      const toObj = it => {
-        const desc = it.id !== null && it.id !== undefined ? state.card.evidence[it.id] : it.title;
-        return { text: desc, proves: (it.proves || '').trim() };
-      };
-      const items = [...selected, ...added].map(toObj);
-      if (items.length) onApply(items);
+      // «что доказывает» — отдельным полем (в конструкторе под доказательством), не в текст
+      const toGround = it => ({
+        text: it.id !== null && it.id !== undefined ? state.card.evidence[it.id] : it.title,
+        proves: it.proves || ''
+      });
+      const grounds = [...selected, ...added].map(toGround);
+      if (grounds.length) onApply(grounds);
     }
   });
 }
@@ -815,7 +779,7 @@ function buildArgsEditor(block) {
     item.className = 'doc-arg' + (argNeedsEvidence(arg) ? ' doc-arg--needs-ev' : '');
     const groundsFlat = ARGS_MODE === 'flat' && (arg.grounds || []).length
       ? `<div class="doc-arg__flatgrounds">Основания: ${arg.grounds.map(gr =>
-          `<b>${GROUND_LABELS[gr.type]}</b> — ${gr.text}${gr.proves ? ' (доказывает: ' + gr.proves + ')' : ''}${gr.evidence ? ' (' + gr.evidence + ')' : ''}`).join(' · ')}</div>`
+          `<b>${GROUND_LABELS[gr.type]}</b> — ${gr.text}${gr.evidence ? ' (' + gr.evidence + ')' : ''}`).join(' · ')}</div>`
       : '';
     item.innerHTML = `
       <span class="doc-arg__grip" draggable="true" title="Перетащить аргумент">⋮⋮</span>
@@ -1024,7 +988,6 @@ function markDirty(block, what, partKey) {
 
 async function onRegenerateClick(block) {
   if (state.busy || !block.dirty) return;
-  block.needsInput = false; // пользователь наполнил конструктор и жмёт «Перегенерировать»
 
   // с подключённой нейронкой — складный юридический текст по данным конструктора,
   // включая содержание нормативных актов; без неё — шаблонная сборка
@@ -1068,12 +1031,29 @@ function renderBlocks() {
     el.className = 'doc-block' + (block.id === state.activeBlockId ? ' is-active' : '');
     el.dataset.blockId = block.id;
 
-    // правая колонка — только кнопки: свернуть/развернуть, удалить, действия
-    const ctrl = document.createElement('div');
-    ctrl.className = 'doc-ctrl';
-    ctrl.contentEditable = 'false';
-    ctrl.innerHTML = `
-      <div class="doc-ctrl__row">
+    // единый столбец управления: галка слева, номер и назначение в столбце,
+    // ЛЕВАЯ колонка — описание блока: галка-статус, номер, назначение
+    const info = document.createElement('div');
+    info.className = 'doc-info';
+    info.contentEditable = 'false';
+    info.innerHTML = `
+      <div class="doc-info__row">
+        <span class="doc-block__status ${issuesOk ? 'is-done' : ''}"
+              title="${issuesOk ? 'Готово' : 'По сводке блока чего-то не хватает'}"></span>
+        <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
+        <span class="doc-block__num">${block.label}</span>
+      </div>
+      <div class="doc-info__summary" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockSummary(block)}</div>`;
+
+    // ПРАВАЯ колонка — управляющие кнопки: пиктограммы + кнопки действий
+    const act = document.createElement('div');
+    act.className = 'doc-act';
+    act.contentEditable = 'false';
+    act.innerHTML = `
+      <div class="doc-act__row">
+        <button class="head-ic head-ic--ai" data-h="ai" title="Редактировать с ИИ">
+          <svg viewBox="0 0 24 24"><path d="M16.5 3.5a2.4 2.4 0 1 1 3.4 3.4L7 19.8 2.5 21l1.2-4.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="m19 13 .8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor"/></svg>
+        </button>
         ${isCtor ? `<button class="head-ic" data-h="toggle" title="${block.constructorDone ? 'Открыть конструктор' : 'Закрыть конструктор'}">
           <svg viewBox="0 0 24 24" style="transform: rotate(${block.constructorDone ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>` : ''}
@@ -1081,32 +1061,25 @@ function renderBlocks() {
           <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-.7 12.1a2 2 0 0 1-2 1.9H8.7a2 2 0 0 1-2-1.9L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>`;
-    ctrl.appendChild(buildBlockMeta(block));
+    act.appendChild(buildBlockMeta(block));
 
-    ctrl.querySelector('[data-h="toggle"]')?.addEventListener('click', e => {
+    act.querySelector('[data-h="ai"]').addEventListener('click', e => {
+      e.stopPropagation();
+      setActiveBlock(block.id);
+      if (state.busy) return;
+      onStarAction({ id: 'rewrite', label: BLOCK_ACTION_LABELS['rewrite'], needsBlock: true });
+    });
+    act.querySelector('[data-h="toggle"]')?.addEventListener('click', e => {
       e.stopPropagation();
       toggleConstructor(block);
     });
-    ctrl.querySelector('[data-h="delete"]').addEventListener('click', e => {
+    act.querySelector('[data-h="delete"]').addEventListener('click', e => {
       e.stopPropagation();
       confirmDeleteBlock(block);
     });
 
-    // заголовок-якорь блока в самом тексте: статус, смысловое название, сводка
-    const head = document.createElement('div');
-    head.className = `doc-anchor doc-anchor--${blockTone(block)}`;
-    head.contentEditable = 'false';
-    head.innerHTML = `
-      <div class="doc-anchor__row">
-        <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
-        <span class="doc-block__status ${issuesOk ? 'is-done' : ''}"
-              title="${issuesOk ? 'Готово' : 'По сводке блока чего-то не хватает'}"></span>
-        <span class="doc-anchor__title">${blockTitle(block)}</span>
-      </div>
-      <div class="doc-anchor__sub" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockSummary(block)}</div>`;
-
     // перетаскивание блока за ручку
-    const grip = head.querySelector('.doc-block__grip');
+    const grip = info.querySelector('.doc-block__grip');
     grip.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/block-id', block.id);
       e.dataTransfer.effectAllowed = 'move';
@@ -1134,12 +1107,12 @@ function renderBlocks() {
       addMessage('assistant', `${dragged.label} перемещён.`);
     });
 
-    // две колонки: [текст с заголовком-якорем] [кнопки]
+    // три колонки: описание — текст — кнопки
     const body = document.createElement('div');
     body.className = 'doc-block__body';
-    body.appendChild(head);
+    el.appendChild(info);
     el.appendChild(body);
-    el.appendChild(ctrl);
+    el.appendChild(act);
 
     if (isCtor) {
       // конструкторный блок: конструктор (если открыт) -> сгенерированный текст
@@ -1279,48 +1252,50 @@ const PH_ACTION_TITLES = {
   'facts-card': 'Заполнить обстоятельства из карточки дела',
   'facts-verdict': 'Разбор файла',
   'facts-own': 'Заполнить обстоятельства своими словами',
-  'admission-fill': 'Заполнить позицию по приговору',
+  'admission-fill': 'Заполнить признание по эпизодам',
   'defense-add': 'Создание линии защиты',
-  'defense-empty': 'Добавить блок защиты',
   'law-auto': 'Подобрать правовое обоснование',
   'law-own': 'Правовое обоснование своими словами'
 };
 
-/** Действие по умолчанию при клике на плейсхолдер секции — сразу вставить блок. */
-function defaultPlaceholderAct(kind) {
-  if (kind === 'verdict') return state.card.verdict ? 'verdict-card' : 'verdict-own';
-  if (kind === 'facts') return state.card.episodes.length ? 'facts-card' : 'facts-own';
-  if (kind === 'admission') return 'admission-fill';
-  if (kind === 'defense') return 'defense-empty';
-  if (kind === 'law') return 'law-auto';
-  return null;
-}
+/** Подсказка на рамке-плейсхолдере: клик сразу вставляет блок. */
+const PH_HINT = {
+  verdict: 'Нажмите, чтобы вставить описание судебного акта',
+  facts: 'Нажмите, чтобы вставить описание обстоятельств дела',
+  admission: 'Нажмите, чтобы вставить позицию по приговору',
+  defense: 'Нажмите, чтобы добавить блок защитной части',
+  law: 'Нажмите, чтобы вставить правовое обоснование'
+};
 
-/** Кликабельный плейсхолдер секции: по клику сразу вставляет блок (без кнопок). */
+/** Рамка-плейсхолдер секции: клик по рамке сразу вставляет блок (без кнопок выбора). */
 function buildPlaceholder(ph) {
   const el = document.createElement('div');
-  el.className = 'doc-ph doc-ph--insert';
+  el.className = 'doc-ph doc-ph--click';
   el.dataset.kind = ph.kind;
-  el.setAttribute('role', 'button');
-  el.setAttribute('tabindex', '0');
-
   el.innerHTML = `
-    <div class="doc-ph__title"><span class="doc-ph__plus">+</span>${ph.title}</div>
-    <div class="doc-ph__hint">Нажмите, чтобы вставить блок — текст затем можно отредактировать с ИИ</div>`;
-
-  const act = defaultPlaceholderAct(ph.kind);
-  const run = () => { if (act) onPlaceholderAction(act); };
-  el.addEventListener('click', run);
-  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(); } });
+    <div class="doc-ph__title">${ph.title}</div>
+    <div class="doc-ph__note">${PH_HINT[ph.kind] || 'Нажмите, чтобы вставить блок'} · правка с ИИ доступна после вставки</div>`;
+  el.addEventListener('click', () => onPlaceholderClick(ph.kind));
   return el;
 }
 
-/** Клик по кнопке плейсхолдера — фронтовое действие; поверх сценария спрашиваем «прервать?». */
-function onPlaceholderAction(act) {
+/** Первичное действие вставки для секции (без выбора — сразу блок). */
+function placeholderInsert(kind) {
+  switch (kind) {
+    case 'verdict': return runPlaceholderAction(state.card.verdict ? 'verdict-card' : 'verdict-own');
+    case 'facts': return runPlaceholderAction(state.card.episodes.length ? 'facts-card' : 'facts-own');
+    case 'admission': return runPlaceholderAction('admission-fill');
+    case 'law': return runPlaceholderAction('law-auto');
+    case 'defense': insertEmptyBlock(null, 'defense'); return;
+  }
+}
+
+/** Клик по рамке-плейсхолдеру: вставка блока; поверх сценария спрашиваем «прервать?». */
+function onPlaceholderClick(kind) {
   if (state.busy) return;
-  const run = () => runPlaceholderAction(act);
+  const run = () => placeholderInsert(kind);
   if (state.scenario) {
-    askInterrupt(PH_ACTION_TITLES[act] || 'Действие со структурой документа', run);
+    askInterrupt(`Вставка блока: ${(state.structure.find(p => p.kind === kind) || {}).title || kind}`, run);
     return;
   }
   run();
@@ -1328,17 +1303,20 @@ function onPlaceholderAction(act) {
 
 async function runPlaceholderAction(act) {
   switch (act) {
-    case 'verdict-card':
+    case 'verdict-card': {
       await think('Формирую описание приговора', 1500);
-      await insertSectionBlock('verdict', composeVerdictText(), { atStart: true, section: 'verdict', kind: 'verdict' });
-      insertAppealLegalGrounds();
-      addMessage('assistant', 'Описание приговора заполнено из карточки дела; добавлен стандартный правовой блок оснований апелляции.');
+      const vId = await insertSectionBlock('verdict', composeVerdictText(), { atStart: true, section: 'verdict', kind: 'verdict' });
+      maybeInsertAppealGrounds(vId);
+      addMessage('assistant', 'Описание приговора заполнено из карточки дела' + (state.docType && state.docType.key === 'appeal' ? '; добавлен стандартный блок оснований для отмены/изменения приговора.' : '.'));
       break;
+    }
 
-    case 'verdict-own':
-      insertBlock('<span class="ph-mark">Опишите приговор первой инстанции</span>', { atStart: true, section: 'verdict', kind: 'verdict-own' });
+    case 'verdict-own': {
+      const vId = insertBlock('<span class="ph-mark">Опишите приговор первой инстанции</span>', { atStart: true, section: 'verdict', kind: 'verdict-own' });
+      maybeInsertAppealGrounds(vId);
       addMessage('assistant', 'Заполните описание приговора самостоятельно в документе.');
       break;
+    }
 
     case 'facts-card':
       state.factsSource = 'card';
@@ -1360,18 +1338,13 @@ async function runPlaceholderAction(act) {
       break;
 
     case 'admission-fill':
-      await think('Формирую позицию по вине по эпизодам', 1400);
-      insertBlock(composeAdmissionText(), { section: 'admission', kind: 'admission' });
-      addMessage('assistant', 'Позиция по вине заполнена.');
+      await think('Формирую позицию по приговору', 1400);
+      await insertSectionBlock('admission', composeAdmissionText(), { section: 'admission', kind: 'admission' });
+      addMessage('assistant', 'Позиция по приговору заполнена.');
       break;
 
     case 'defense-add':
       startCreateLine(); // сценарий 6
-      break;
-
-    case 'defense-empty':
-      // блок появляется сразу; линию выбираем в самом блоке, текст — потом ИИ
-      insertEmptyBlock(null, 'defense');
       break;
 
     case 'law-auto':
@@ -1410,61 +1383,83 @@ async function maybeAutoAdmission({ silent, deferred } = {}) {
   return true;
 }
 
-/**
- * Краткое ёмкое обозначение эпизода для текста документа: «по факту …».
- * Берём shortName из карточки, иначе — из квалификации, иначе общий фолбэк.
- */
-function episodeShort(ep, i) {
-  if (ep && ep.shortName) return ep.shortName;
-  if (ep && ep.qualification) return `деяния, квалифицированного по ${ep.qualification}`;
-  return `деяния, изложенного в эпизоде № ${i + 1}`;
+/* ---------- Идентификация эпизодов (кратко и конкретно, без «эпизод N») ---------- */
+
+/** Суть/место эпизода без служебного «Эпизод N —» и без хвостовой квалификации в скобках. */
+function episodePlace(ep, i) {
+  let d = (ep.title || '').replace(/^Эпизод\s*\d+\s*[—:–-]\s*/i, '').trim();
+  d = d.replace(/\s*\([^()]*\)\s*$/, '').trim();
+  if (!d || /^из введённой фабулы/i.test(d)) {
+    const t = stripTags(ep.text || '').replace(/\s+/g, ' ').trim();
+    d = t ? t.split(/[.;]/)[0].slice(0, 70).trim() : '';
+  }
+  return d;
 }
 
-/** Тип позиции по признанию вины из свободной формулировки статуса. */
-function admissionKind(adm) {
-  const s = (adm || '').toLowerCase();
-  if (!s) return 'unknown';
-  if (s.includes('частич')) return 'partial';
-  if (s.includes('не призна')) return 'denied';
-  if (s.includes('призна')) return 'admitted';
+/** Развёрнутое «по факту совершения деяния…» для начала предложения (фабула). */
+function episodeFactRef(ep, i) {
+  const qual = ep.qualification || '';
+  const place = episodePlace(ep, i);
+  const base = qual
+    ? `по факту совершения деяния, предусмотренного ${qual}`
+    : `по факту совершения инкриминируемого деяния`;
+  return place ? `${base} (${place})` : base;
+}
+
+/** Родительный «деяния, предусмотренного …» — для встраивания в оборот (позиция). */
+function episodeDeedRef(ep, i) {
+  const qual = ep.qualification || '';
+  const place = episodePlace(ep, i);
+  const base = qual ? `деяния, предусмотренного ${qual}` : `инкриминируемого деяния`;
+  return place ? `${base} (${place})` : base;
+}
+
+/** Краткий идентификатор эпизода для сводки/чипа блока. */
+function episodeShort(ep, i) {
+  return episodePlace(ep, i) || (ep.qualification ? `по ${ep.qualification}` : `эпизод ${i + 1}`);
+}
+
+/** Классификация статуса признания по свободному тексту. */
+function admissionKind(admText) {
+  const s = (admText || '').toLowerCase();
+  if (!s.trim()) return 'unknown';
+  if (/частичн/.test(s)) return 'partial';
+  if (/не\s+призна|не\s+согла|не\s+винов/.test(s)) return 'deny';
+  if (/призна|винов/.test(s)) return 'full';
   return 'unknown';
 }
 
-/**
- * Блок «Позиция по приговору»: несогласие с приговором по каждому эпизоду
- * с формулировкой под статус признания. Короткий. Если данных о признании
- * нет ни в карточке, ни в приговоре — явно просим ввести позицию вручную.
- */
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+/** Блок «Позиция по приговору»: несогласие по статусу признания, кратко. */
 function composeAdmissionText() {
   if (state.factsSource === 'own') {
-    return '<span class="ph-mark">Заполните позицию по приговору</span>';
+    return '<p><span class="ph-mark">Информация о признании отсутствует — введите позицию по приговору вручную.</span></p>';
   }
   const fromVerdict = state.factsSource === 'verdict';
   const eps = state.card.episodes;
 
-  // нет сведений о признании ни в карточке, ни в приговоре — не выдумываем
-  const anyKnown = eps.some(ep => admissionKind(ep.admission) !== 'unknown');
-  if (!eps.length || (!anyKnown && !fromVerdict)) {
-    return '<span class="ph-mark">Информация о признании вины в карточке дела и приговоре не найдена — введите позицию по приговору вручную.</span>';
+  // нет данных о признании ни в карточке дела, ни в приговоре — просим ввести вручную
+  const noData = !eps.length || eps.every(ep => !ep.admission);
+  if (noData && !fromVerdict) {
+    return '<p><span class="ph-mark">Информация о признании вины не найдена в карточке дела и в приговоре — введите позицию по приговору вручную.</span></p>';
   }
 
-  const clauses = eps.map((ep, i) => {
-    const ref = `по факту ${episodeShort(ep, i)}`;
-    const kind = admissionKind(ep.admission) === 'unknown' && fromVerdict ? 'denied' : admissionKind(ep.admission);
-    if (kind === 'admitted') {
-      return `, не оспаривая решение суда и причастность подзащитного к совершению преступления, не согласна с квалификацией содеянного и назначенным наказанием ${ref}`;
+  const single = eps.length === 1;
+  const rows = eps.map((ep, i) => {
+    const deed = episodeDeedRef(ep, i);
+    switch (admissionKind(ep.admission || (fromVerdict ? 'вину не признал' : ''))) {
+      case 'full':
+        return `сторона защиты, не оспаривая решение суда и причастность подзащитного к совершению ${single ? 'преступления' : deed}, не согласна с квалификацией содеянного и справедливостью назначенного наказания`;
+      case 'partial':
+        return `сторона защиты не согласна с решением суда в части${single ? ' квалификации содеянного и назначенного наказания' : ', касающейся ' + deed}`;
+      case 'deny':
+        return `сторона защиты не согласна с решением суда${single ? '' : ' в отношении ' + deed}, полагая выводы о виновности не подтверждёнными совокупностью исследованных доказательств`;
+      default:
+        return `по эпизоду «${episodeShort(ep, i)}» <span class="ph-mark">статус признания не найден — укажите позицию вручную</span>`;
     }
-    if (kind === 'partial') {
-      return `не согласна с решением суда первой инстанции в части осуждения ${ref}`;
-    }
-    if (kind === 'denied') {
-      return `не согласна с решением суда первой инстанции об осуждении ${ref}`;
-    }
-    return `просит проверить обоснованность осуждения ${ref}`;
   });
-
-  const body = clauses.map((c, i) => `сторона защиты ${c}`).join('; ');
-  return `${body.charAt(0).toUpperCase()}${body.slice(1)}. Изложенная в судебном заседании позиция подзащитного судом надлежащей оценки не получила.`;
+  return `<p>${cap(rows.join('; '))}.</p>`;
 }
 
 /* ---------- Чеклист наполнения (строка состояния) ---------- */
@@ -1568,26 +1563,16 @@ const SRC_LABELS = {
 function defaultArgsList(line) {
   const pool = line.argumentsPool || [];
   if (!pool.length) {
-    // нет пула аргументов: берём готовый аргумент/тезис линии, а заглушку НЕ подставляем —
-    // для линии без наполнения возвращаем пустой список (текст не собирается из шаблона)
-    const text = (line.argument || line.thesis || '').replace(/\s+/g, ' ').trim();
+    // осмысленный аргумент/тезис; заглушку REGEN_FALLBACK_TEXT в аргумент не подставляем —
+    // иначе новый (ручной) блок получает короткий шаблонный текст вместо реального
+    const raw = (line.argument && line.argument !== REGEN_FALLBACK_TEXT) ? line.argument : line.thesis;
+    const text = (raw || '').replace(/\s+/g, ' ').trim();
     return text ? [{ text, source: 'fact', auto: true, poolIdx: null, grounds: [] }] : [];
   }
   return pool.slice(0, 2).map((a, i) => ({
     text: a.text, source: a.source, auto: true, poolIdx: i,
     grounds: (a.grounds || []).map(g => ({ ...g }))
   }));
-}
-
-/** Есть ли из чего собирать/генерировать текст блока (аргументы или тезис). */
-function blockHasGenInput(block, line) {
-  const hasArgs = (block.argsList || []).some(a => (a.text || '').trim());
-  return hasArgs || !!(line && line.thesis);
-}
-
-/** Информативный плейсхолдер для блока без наполнения (вместо заглушечного текста). */
-function emptyBlockHint() {
-  return '<span class="ph-mark">Добавьте аргументы и доводы в конструкторе блока — по ним соберётся текст (кнопка «Перегенерировать»).</span>';
 }
 
 /** Основание только из практики — рекомендуем подкрепить доказательством или нормой. */
@@ -1613,7 +1598,7 @@ function blockLacksEvidence(block) {
 /** Короткая фактура дела для промтов. */
 function caseSummaryForPrompt() {
   const c = state.card;
-  const eps = c.episodes.map((e, i) => `Эпизод (по факту ${episodeShort(e, i)}): ${stripTags(e.text).replace(/\s+/g, ' ').slice(0, 260)} Позиция по признанию: ${e.admission || 'не указана'}.`).join('\n');
+  const eps = c.episodes.map((e, i) => `${cap(episodeFactRef(e, i))}: ${stripTags(e.text).replace(/\s+/g, ' ').slice(0, 260)} Позиция по признанию: ${e.admission || 'не указана'}.`).join('\n');
   return [
     c.client ? `Доверитель: ${c.client}.` : '',
     c.verdict ? `Судебный акт: приговор ${c.verdict.courtName} от ${c.verdict.date}, ${c.verdict.qualification}, наказание: ${c.verdict.sentence}.` : '',
@@ -1626,7 +1611,7 @@ function caseSummaryForPrompt() {
 function blockPromptVars(block) {
   const line = state.card.lines.find(l => l.id === block.lineId) || {};
   const args = (block.argsList || []).map((a, i) => {
-    const gr = (a.grounds || []).map(g => `  - ${GROUND_LABELS[g.type] || g.type}: ${stripTags(g.text)}${g.proves ? ` (что доказывает: ${stripTags(g.proves)})` : ''}`).join('\n');
+    const gr = (a.grounds || []).map(g => `  - ${GROUND_LABELS[g.type] || g.type}: ${stripTags(g.text)}${g.type === 'evidence' && g.proves ? ` (доказывает: ${stripTags(g.proves)})` : ''}`).join('\n');
     return `${i + 1}. ${a.text}${gr ? '\n' + gr : ''}`;
   }).join('\n');
 
@@ -1664,18 +1649,11 @@ function blockPromptVars(block) {
 async function generateSectionText(kind, fallbackHtml) {
   if (typeof LLM === 'undefined' || !LLM.enabled()) return fallbackHtml;
   const names = { verdict: 'Описание судебного акта первой инстанции', facts: 'Описание обстоятельств дела', admission: 'Позиция по приговору' };
-  // позиция по приговору — короткий раздел; остальные — обычной длины
-  const lengthHints = {
-    admission: 'Объём — коротко: 2–4 предложения, без развёрнутых рассуждений.',
-    verdict: 'Объём — 1–2 связных абзаца.',
-    facts: 'Объём — 1–3 связных абзаца.'
-  };
   try {
     const text = await thinkWhile(`Анализирую материалы дела и формирую раздел «${names[kind] || kind}» нейросетью`, () =>
       LLM.complete(fillPrompt(PROMPTS.generateSection, {
         sectionName: names[kind] || kind,
         docType: state.docType ? state.docType.label : 'документ',
-        lengthHint: lengthHints[kind] || 'Объём — 1–3 связных абзаца.',
         caseSummary: caseSummaryForPrompt(),
         sectionData: `Черновик раздела (можно опираться): ${stripTags(fallbackHtml).replace(/\s+/g, ' ')}`
       })));
@@ -1696,8 +1674,6 @@ async function llmGenerateBlock(blockId) {
   if (typeof LLM === 'undefined' || !LLM.enabled()) return;
   const block = getBlock(blockId);
   if (!block || !block.parts) return;
-  // линия без аргументов/тезиса: не генерируем заглушку, оставляем подсказку
-  if (block.needsInput) return;
   try {
     const text = await thinkWhile(`Анализирую данные конструктора и генерирую текст ${labelGen(block.label)} нейросетью`, () =>
       LLM.complete(fillPrompt(PROMPTS.regenerateBlock, blockPromptVars(block)), { maxTokens: 8000 }));
@@ -1770,7 +1746,7 @@ function argsListToHtml(argsList) {
     if (!t) return '';
     if (ARGS_MODE === 'tree' && a.grounds && a.grounds.length) {
       t += ` Это подтверждается: ${a.grounds.map(g =>
-        `${g.text}${g.proves ? ' (доказывает: ' + g.proves + ')' : ''}${g.evidence ? ' (' + g.evidence + ')' : ''}`).filter(Boolean).join('; ')}.`;
+        `${g.text}${g.evidence ? ' (' + g.evidence + ')' : ''}${g.type === 'evidence' && g.proves ? ' — доказывает: ' + g.proves : ''}`).filter(Boolean).join('; ')}.`;
     }
     return t;
   }).filter(Boolean).join(' ');
@@ -1820,6 +1796,9 @@ function generateFromParts(parts) {
   const get = k => stripTags((parts.find(p => p.key === k) || {}).html || '').replace(/\.$/, '');
   const dot = s => s ? s + '.' : '';
   const args = get('arguments');
+  // нет ядра (аргументов) — не собираем шаблонный обрывок: пусть блок покажет
+  // плейсхолдер «Введите текст блока…», текст добавит пользователь или ИИ
+  if (!args) return '';
   const circ = get('circumstances');
   const ev = get('evidence');
   const norms = get('norms');
@@ -1839,20 +1818,15 @@ function insertLineBlock(line, opts = {}) {
   const selectedPractice = state.card.practice && state.card.practice.length
     ? [0, 1].filter(i => state.card.practice[i]) : null;
   const parts = buildLineParts(line, { argsList, selectedPractice });
-  const canGen = argsList.some(a => (a.text || '').trim()) || !!line.thesis;
-  // нечего собирать (линия без аргументов и тезиса) — информативный плейсхолдер, не заглушка;
-  // с нейронкой и наличием данных — плейсхолдер генерации; иначе сборка из шаблона
-  const initialText = !canGen
-    ? emptyBlockHint()
-    : (typeof LLM !== 'undefined' && LLM.enabled())
-      ? pendingHtml(`текст по линии «${shortLineTitle(line.title)}» — аргументы, основания, нормативная опора`)
-      : generateFromParts(parts);
+  // с нейронкой — информативный плейсхолдер вместо заглушечного текста до генерации
+  const initialText = (typeof LLM !== 'undefined' && LLM.enabled())
+    ? pendingHtml(`текст по линии «${shortLineTitle(line.title)}» — аргументы, основания, нормативная опора`)
+    : generateFromParts(parts);
   const id = insertBlock('', { ...opts, lineId: line.id, parts, generated: initialText });
   const b = getBlock(id);
   b.argsList = argsList;
   b.selectedPractice = selectedPractice;
   b.argsStale = false;
-  b.needsInput = !canGen; // llmGenerateBlock пропустит такой блок
   return id;
 }
 
@@ -1864,25 +1838,18 @@ function applyLineToBlock(block, line, { silent } = {}) {
   block.selectedPractice = state.card.practice && state.card.practice.length
     ? [0, 1].filter(i => state.card.practice[i]) : null;
   block.parts = buildLineParts(line, { argsList: block.argsList, selectedPractice: block.selectedPractice });
-  const canGen = blockHasGenInput(block, line);
-  // линия без аргументов/тезиса — не заполняем заглушкой, показываем подсказку
-  block.generated = canGen ? generateFromParts(block.parts) : emptyBlockHint();
-  block.needsInput = !canGen;
+  block.generated = generateFromParts(block.parts);
   block.evidence = block.evidence || [];
   block.dirty = false;
   block.dirtyNotified = false;
-  block.constructorDone = !canGen ? false : true; // без наполнения — раскрываем конструктор
+  block.constructorDone = true; // свёрнут по умолчанию
   state.boundLines.add(line.id);
   addPlea(line.plea || PLEA_FALLBACK);
   renderBlocks();
   flashBlock(block.id);
-  if (!silent) {
-    addMessage('assistant', canGen
-      ? `К ${labelGen(block.label).replace('Блока', 'Блоку')} привязана линия «${shortLineTitle(line.title)}» — конструктор и текст заполнены заново.`
-      : `К ${labelGen(block.label).replace('Блока', 'Блоку')} привязана линия «${shortLineTitle(line.title)}». Добавьте аргументы и доводы в конструкторе — по ним соберётся текст.`);
-  }
-  // текст блока сразу генерится нейронкой только если есть из чего (иначе не будет заглушки)
-  if (canGen) llmGenerateBlock(block.id);
+  if (!silent) addMessage('assistant', `К ${labelGen(block.label).replace('Блока', 'Блоку')} привязана линия «${shortLineTitle(line.title)}» — конструктор и текст заполнены заново.`);
+  // текст блока сразу генерится нейронкой (если подключена)
+  llmGenerateBlock(block.id);
 }
 
 /** «Вся информация блока будет удалена» — блок становится пустым. */
@@ -1941,17 +1908,27 @@ function composeVerdictText() {
 }
 
 /**
- * Стандартный правовой блок апелляционной жалобы — сразу после описания
- * приговора (законность приговора, основания отмены, позиции КС РФ, оценка
- * доказательств). Текст типовой; вставляется один раз, только для апелляции.
+ * Стандартный блок оснований для отмены/изменения приговора (апелляция):
+ * требования к приговору + основания ст. 389.15 + позиция КС РФ и ст. 17, 14 УПК РФ.
+ * Текст фиксированный (шаблон), нейросетью не перегенерируется.
  */
-function insertAppealLegalGrounds() {
+const APPEAL_GROUNDS_PARAS = [
+  'В соответствии со ст.ст. 297, 302 УПК РФ приговор суда должен быть законным, обоснованным и справедливым, а обвинительный приговор постановляется лишь при условии, что в ходе судебного разбирательства виновность подсудимого в совершении преступления подтверждена совокупностью исследованных доказательств.',
+  'В соответствии со статьёй 389.15 УПК РФ основанием отмены или изменения судебного решения в апелляционном порядке является несоответствие выводов суда, изложенных в приговоре, фактическим обстоятельствам уголовного дела, установленным судом первой инстанции.',
+  'Приговор основан исключительно на доказательствах, полученных в ходе предварительного следствия, при этом доказательства, установленные в ходе судебного разбирательства, судом объективно не оценены, не учтены и обоснованно не опровергнуты, что указывает на обвинительный уклон суда при вынесении решения.',
+  'Как указал Конституционный Суд Российской Федерации в Определении от 8 апреля 2010 года № 601-О-О, в основу обвинительного приговора могут быть положены лишь доказательства, не вызывающие сомнения в их достоверности и допустимости. Обвинение может быть признано обоснованным только при условии, что все противостоящие ему обстоятельства дела объективно исследованы и опровергнуты стороной обвинения (Постановление Конституционного Суда Российской Федерации от 29.06.2004 года № 13-П).',
+  'В части первой статьи 17 УПК РФ в качестве принципа оценки доказательств закреплено адресованное судье требование не только исходить при такой оценке из своего внутреннего убеждения и совести, но и основываться на совокупности имеющихся в деле доказательств и руководствоваться законом. При этом правило о том, что никакие доказательства не имеют заранее установленной силы (часть вторая ст. 17 УПК РФ), раскрывая данный принцип, запрещает правоприменителю отдавать предпочтение тем или иным доказательствам на основании формальных критериев; неустранимые сомнения в виновности лица, возникающие при оценке доказательств, должны толковаться в пользу обвиняемого (часть 3 ст. 14 УПК РФ).'
+];
+
+function composeAppealGroundsText() {
+  return APPEAL_GROUNDS_PARAS.map(p => `<p>${p}</p>`).join('');
+}
+
+/** Вставляет стандартный блок оснований сразу после описания приговора (только апелляция, единожды). */
+function maybeInsertAppealGrounds(afterVerdictId) {
   if (!state.docType || state.docType.key !== 'appeal') return;
-  if (typeof APPEAL_LEGAL_GROUNDS_HTML === 'undefined') return;
-  if (state.blocks.some(b => b.kind === 'legal-grounds')) return;
-  const verdict = state.blocks.find(b => (b.section || 'defense') === 'verdict');
-  if (!verdict) return;
-  insertBlock(APPEAL_LEGAL_GROUNDS_HTML, { afterId: verdict.id, section: 'verdict', kind: 'legal-grounds' });
+  if (state.blocks.some(b => b.kind === 'grounds')) return;
+  insertBlock(composeAppealGroundsText(), { afterId: afterVerdictId, section: 'verdict', kind: 'grounds' });
 }
 
 /** Спец-идентификатор шапки документа в контексте чата. */
@@ -2046,9 +2023,8 @@ function generateHeaderLines(type) {
     if (court) {
       // полные данные для шапки есть в карточке дела
       const lines = [`В ${court.name}`, court.address];
-      // апелляционная (и кассационная) жалоба подаётся через суд первой инстанции
-      const firstCourt = c.court.firstInstanceCourt;
-      if (firstCourt) lines.push(`через ${firstCourt}`);
+      // жалоба подаётся через суд первой инстанции (ст. 389.3, 401.3 УПК РФ)
+      if (c.court.firstInstance) lines.push(`через ${c.court.firstInstance}`);
       lines.push('');
       lines.push(advLine);
       if (c.advocateDetails) lines.push(c.advocateDetails);
@@ -2058,9 +2034,7 @@ function generateHeaderLines(type) {
       if (c.court.firstInstanceRef) lines.push(`(${c.court.firstInstanceRef})`);
       return lines;
     }
-    // суда в карточке нет: подсказываем и адресат, и «через суд первой инстанции»
-    const via = type.key === 'appeal' ? [`через ${ph('вставить суд первой инстанции')}`] : [];
-    return [`В ${ph('вставить название суда ' + type.court)}`, ...via, advLine, cliLine];
+    return [`В суд ${type.court}`, `через ${ph('вставить суд первой инстанции')}`, '', advLine, cliLine];
   }
   return [advLine, cliLine];
 }
@@ -2429,13 +2403,16 @@ async function routeText(text) {
   const trigger = matchTrigger(text);
   const sc = state.scenario;
 
-  // Сценарий не запущен (состояние C): свободный ввод правит выбранную зону документа
+  // Сценарий не запущен (состояние C): свободный ввод правит выбранную зону
   if (!sc) {
     if (trigger) return launchScenario(trigger);
     if (state.activeSubpart) return editSubpartWithAI(text);
     if (state.activeBlockId === HEADER_ID) return editHeaderWithAI(text);
-    const activeBlock = state.activeBlockId ? getBlock(state.activeBlockId) : null;
-    if (activeBlock) return editActiveBlockWithAI(activeBlock, text);
+    // выбран блок целиком — свободный ввод редактирует его текст
+    if (state.activeBlockId) {
+      const block = getBlock(state.activeBlockId);
+      if (block) return onRewriteBlock(block, text);
+    }
     return onFreeInput(text);
   }
 
@@ -2519,49 +2496,9 @@ async function editSubpartWithAI(text) {
   addMessage('assistant', `Подблок «${part.title}» ${labelGen(block.label)} отредактирован с учётом запроса. Кнопка «Перегенерировать» стала активна.`);
 }
 
-/** Правка текста активного блока свободным запросом из чата (без сценария). */
-async function editActiveBlockWithAI(block, text) {
-  const isCtor = !!(block.parts && block.parts.length);
-  const raw = isCtor ? (block.generated || '') : (block.html || '');
-  // плейсхолдеры (генерация/подсказка/рамка) текстом не считаем — заменяем целиком
-  const isPlaceholder = /gen-pending|ph-mark/.test(raw);
-  const currentText = isPlaceholder ? '' : stripTags(raw).replace(/\s+/g, ' ').trim();
-
-  if (typeof LLM !== 'undefined' && LLM.enabled()) {
-    try {
-      const out = await thinkWhile(`Анализирую запрос и вношу правку в текст ${labelGen(block.label)} нейросетью`, () =>
-        LLM.complete(fillPrompt(PROMPTS.editTarget, {
-          docType: state.docType ? state.docType.label : 'документ',
-          targetName: `${block.label} · текст блока`,
-          userCommand: text,
-          caseSummary: caseSummaryForPrompt(),
-          blockText: '—',
-          currentText: currentText || '—'
-        }), { maxTokens: 8000 }));
-      const html = out.split(/\n{2,}/).map(p => `<p>${p.trim()}</p>`).join('');
-      if (isCtor) { block.generated = html; block.needsInput = false; }
-      else { block.html = html; block.htmlBase = null; }
-    } catch (err) {
-      addMessage('assistant', `(ИИ недоступен: ${err.message} — правка не внесена. Проверьте подключение ИИ.)`);
-      return;
-    }
-  } else {
-    // без нейронки — не заглушка: вносим введённый текст в блок (дописываем к текущему)
-    await think(`Вношу правку в текст ${labelGen(block.label)}`, 1200);
-    const addition = `${text.charAt(0).toUpperCase()}${text.slice(1).replace(/\.?$/, '.')}`;
-    const html = `<p>${currentText ? currentText + ' ' + addition : addition}</p>`;
-    if (isCtor) { block.generated = html; block.needsInput = false; }
-    else { block.html = html; block.htmlBase = null; }
-  }
-
-  renderBlocks();
-  flashBlock(block.id);
-  addMessage('assistant', `Правка внесена в текст ${labelGen(block.label)} по вашему запросу.`);
-}
-
 async function onFreeInput(text) {
-  await think('Обрабатываю запрос', 900);
-  addMessage('assistant', 'Выделите в документе блок, подблок или шапку и повторите запрос — я внесу правку в выбранный фрагмент. Список команд — по слову «справка».');
+  await think('Обрабатываю запрос', 1000);
+  addMessage('assistant', 'Чтобы отредактировать текст свободным вводом, выберите зону — блок, подблок или шапку (кликните по ней в документе), затем опишите правку. Команды доступны всегда: наберите «справка».');
 }
 
 /* ================= Сценарий №1: стартовый (выбор типа документа) ================= */
@@ -2773,7 +2710,6 @@ async function onFabulaEntered(text) {
   const episode = {
     id: 'ep-user-1',
     title: 'Эпизод 1 — из введённой фабулы',
-    shortName: 'деяния, изложенного в представленной фабуле',
     text: text
   };
   state.card.episodes.push(episode);
@@ -3162,9 +3098,9 @@ async function runGenByLines() {
   if (state.structure && state.structure.some(p => p.kind === 'verdict') && state.card.verdict
       && !state.blocks.some(b => (b.section || 'defense') === 'verdict')) {
     await think('Формирую описание приговора', 1400);
-    await insertSectionBlock('verdict', composeVerdictText(), { atStart: true, section: 'verdict', kind: 'verdict', deferred: true });
-    // стандартный правовой блок апелляции — сразу после описания приговора
-    insertAppealLegalGrounds();
+    const vId = await insertSectionBlock('verdict', composeVerdictText(), { atStart: true, section: 'verdict', kind: 'verdict', deferred: true });
+    // стандартный блок оснований для отмены/изменения приговора (апелляция) — сразу после описания
+    maybeInsertAppealGrounds(vId);
   }
 
   // признание известно по карточке — заполняем автоматически (без отдельной отбивки)
@@ -3203,9 +3139,9 @@ function composeFactsText() {
   const client = c.clientDat || c.client;
   const intro = `По уголовному делу${caseRef} моему доверителю${client ? ' ' + client : ''} вменяются следующие деяния.`;
   const episodes = c.episodes.map((ep, i) => {
-    const text = ep.text.replace(/\s+/g, ' ').trim();
+    const text = stripTags(ep.text).replace(/\s+/g, ' ').trim();
     const sentences = text.split('. ');
-    return `По факту ${episodeShort(ep, i)}: ${sentences.slice(0, 2).join('. ')}${sentences.length > 1 ? '.' : ''}`;
+    return `${cap(episodeFactRef(ep, i))}: ${sentences.slice(0, 2).join('. ')}${sentences.length > 1 ? '.' : ''}`;
   }).join(' ');
   return `${intro} ${episodes}`;
 }
@@ -3501,6 +3437,18 @@ async function rewriteBlockAuto(block, mode) {
   addMessage('assistant', mode === 'shorter' ? 'Блок переписан короче.' : 'Блок переписан подробнее.');
 }
 
+/** Ручная правка без нейронки: сохраняем текст блока и дописываем учтённый запрос абзацем. */
+function applyManualBlockEdit(block, request, isCtor) {
+  const baseHtml = (isCtor ? (block.generated || '') : (block.html || '')).trim();
+  const isPlaceholder = !baseHtml || /gen-pending|Введите текст блока|ph-mark/i.test(baseHtml);
+  const req = request.replace(/\s+/g, ' ').trim();
+  const html = isPlaceholder
+    ? `<p>${cap(req).replace(/\.?$/, '.')}</p>`
+    : `${baseHtml}<p>Дополнительно учтено: ${req.charAt(0).toLowerCase()}${req.slice(1).replace(/\.?$/, '.')}</p>`;
+  if (isCtor) block.generated = html;
+  else { block.html = html; block.htmlBase = null; }
+}
+
 /** 16.6 — редактирование блока с ИИ по свободному запросу (предыдущий текст — в контексте). */
 async function onRewriteBlock(block, request) {
   const isCtor = !!(block.parts && block.parts.length);
@@ -3521,14 +3469,12 @@ async function onRewriteBlock(block, request) {
       if (isCtor) block.generated = html;
       else { block.html = html; block.htmlBase = null; }
     } catch (err) {
-      addMessage('assistant', `(ИИ недоступен: ${err.message} — применена шаблонная правка.)`);
-      if (isCtor) block.generated = REGEN_FALLBACK_TEXT.replace(/\s+/g, ' ').trim();
-      else { block.html = REGEN_FALLBACK_TEXT; block.htmlBase = null; }
+      addMessage('assistant', `(ИИ недоступен: ${err.message} — правка внесена без переформулирования.)`);
+      applyManualBlockEdit(block, request, isCtor);
     }
   } else {
-    await think('Редактирую блок согласно запросу', 1800);
-    if (isCtor) block.generated = REGEN_FALLBACK_TEXT.replace(/\s+/g, ' ').trim();
-    else { block.html = REGEN_FALLBACK_TEXT; block.htmlBase = null; }
+    await think('Вношу правку в текст блока', 1400);
+    applyManualBlockEdit(block, request, isCtor);
   }
 
   renderBlocks();
