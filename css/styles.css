@@ -468,21 +468,23 @@ body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
 .doc-block:hover .doc-info__title,
 .doc-block.is-active .doc-info__title { color: #5b6270; }
 
+/* детали: эпизод и тезис целиком — выключкой влево, так длинный тезис читается */
 .doc-info__details {
   display: none;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   margin-top: 5px;
   font-size: 11.5px;
   line-height: 1.4;
   color: var(--text-muted);
-  text-align: right;
+  text-align: left;
 }
+/* тезис — вторым, чуть заметнее эпизода: это суть блока */
+.doc-info__details span + span { color: #5b6270; }
 .doc-block:hover .doc-info__details,
 .doc-block.is-active .doc-info__details { display: flex; }
 /* при колонке кнопок слева описание уходит вправо — прижимаем к тексту слева */
-body.ctrl-left .doc-info__title,
-body.ctrl-left .doc-info__details { text-align: left; }
+body.ctrl-left .doc-info__title { text-align: left; }
 body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 
 /* --- ПРАВАЯ колонка: кнопки действий с подписями (контекст читается сразу) --- */

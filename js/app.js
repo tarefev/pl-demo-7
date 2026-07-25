@@ -228,7 +228,12 @@ function blockLead(block) {
   return line ? shortLineTitle(line.title) : 'Линия не привязана';
 }
 
-/** Детали блока — показываются только у активного или наведённого блока. */
+/**
+ * Детали блока для маргиналии (видны у активного/наведённого блока):
+ * только смысл — эпизод и тезис целиком. Счётчиков доказательств и
+ * аргументов здесь нет: число аргументов — на кнопке, нехватка
+ * доказательств — отдельной жёлтой кнопкой со ссылкой на аргумент.
+ */
 function blockDetails(block) {
   const sec = block.section || 'defense';
   if (sec !== 'defense' || !(block.parts && block.parts.length)) return [];
@@ -236,9 +241,7 @@ function blockDetails(block) {
   const ep = line && line.episodeId ? state.card.episodes.findIndex(x => x.id === line.episodeId) : -1;
   const bits = [];
   if (ep >= 0) bits.push(cap(episodeShort(state.card.episodes[ep], ep)));
-  if (line && line.thesis) bits.push(`Тезис: ${line.thesis.split('. ')[0].slice(0, 60)}${line.thesis.length > 60 ? '…' : ''}`);
-  bits.push(`Доказательств: ${(block.evidence || []).length}`);
-  bits.push(`Аргументов: ${(block.argsList || []).length}`);
+  if (line && line.thesis) bits.push(line.thesis);
   return bits;
 }
 
