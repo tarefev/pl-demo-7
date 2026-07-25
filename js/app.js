@@ -431,16 +431,18 @@ function buildGroundsEl(block, arg) {
 
 /** Скролл к ближайшему аргументу без доказательства (открывает конструктор при необходимости). */
 function scrollToNeedyArg(block) {
-  if (block.constructorDone) {
-    block.constructorDone = false;
-    renderBlocks();
-  }
+  // разворачиваем конструктор и раскрываем основания у проблемного аргумента
+  const needy = (block.argsList || []).find(argNeedsEvidence);
+  if (needy) needy.groundsOpen = true;
+  if (block.constructorDone) block.constructorDone = false;
+  renderBlocks();
+
   const el = document.querySelector(`.doc-block[data-block-id="${block.id}"] .doc-arg--needs-ev`);
-  if (el) {
-    smoothScrollTo(el);
-    el.classList.add('flash');
-    setTimeout(() => el.classList.remove('flash'), 1600);
-  }
+  if (!el) return;
+  // прокручиваем документ к аргументу и подсвечиваем его
+  smoothScrollTo(el);
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 1600);
 }
 
 /* ---------- Двухпанельный попап в дизайне сайта (список + детали + добавление) ---------- */
@@ -1071,8 +1073,8 @@ function renderBlocks() {
         <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
         <span class="doc-info__title" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockLead(block)}</span>
       </div>
-      ${needsEv ? `<button class="doc-info__alert" data-h="needs-ev" title="Показать аргумент без доказательства">Не хватает доказательств</button>` : ''}
-      ${details.length ? `<div class="doc-info__details">${details.map(d => `<span>${d}</span>`).join('')}</div>` : ''}`;
+      ${details.length ? `<div class="doc-info__details">${details.map(d => `<span>${d}</span>`).join('')}</div>` : ''}
+      ${needsEv ? `<button class="doc-info__alert" data-h="needs-ev" title="Развернуть конструктор и перейти к аргументу без доказательства">Не хватает доказательств</button>` : ''}`;
 
     info.querySelector('[data-h="needs-ev"]')?.addEventListener('click', e => {
       e.stopPropagation();
