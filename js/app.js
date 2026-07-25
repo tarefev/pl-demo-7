@@ -199,21 +199,34 @@ function buildBlockMeta(block) {
 
 /** Короткая сводка блока для первой строки (по образу отчёта в чате). */
 function blockSummary(block) {
+  const details = blockDetails(block);
+  return details.length ? `${blockLead(block)} · ${details.join(' · ')}` : blockLead(block);
+}
+
+/** Короткое название раздела блока — постоянная подпись-маргиналия слева. */
+function blockLead(block) {
   const sec = block.section || 'defense';
+  if (block.kind === 'grounds') return 'Основания для отмены';
   if (sec !== 'defense' || !(block.parts && block.parts.length)) {
     const titles = { verdict: 'Описание судебного акта', facts: 'Обстоятельства дела', admission: 'Позиция по приговору', law: 'Правовое обоснование' };
-    if (block.kind === 'grounds') return 'Основания для отмены/изменения приговора';
     return titles[sec] || 'Текстовый блок';
   }
+  const line = state.card.lines.find(l => l.id === block.lineId) || null;
+  return line ? shortLineTitle(line.title) : 'Линия не привязана';
+}
+
+/** Детали блока — показываются только у активного или наведённого блока. */
+function blockDetails(block) {
+  const sec = block.section || 'defense';
+  if (sec !== 'defense' || !(block.parts && block.parts.length)) return [];
   const line = state.card.lines.find(l => l.id === block.lineId) || null;
   const ep = line && line.episodeId ? state.card.episodes.findIndex(x => x.id === line.episodeId) : -1;
   const bits = [];
   if (ep >= 0) bits.push(cap(episodeShort(state.card.episodes[ep], ep)));
-  bits.push(line ? `Линия: ${shortLineTitle(line.title)}` : 'Линия не привязана');
   if (line && line.thesis) bits.push(`Тезис: ${line.thesis.split('. ')[0].slice(0, 60)}${line.thesis.length > 60 ? '…' : ''}`);
   bits.push(`Доказательств: ${(block.evidence || []).length}`);
   bits.push(`Аргументов: ${(block.argsList || []).length}`);
-  return bits.join(' · ');
+  return bits;
 }
 
 /** Удаление блока с подтверждением. */
@@ -957,8 +970,8 @@ function buildGenerated(block) {
   const gen = document.createElement('div');
   gen.className = 'doc-generated';
   gen.contentEditable = 'false';
+  // подпись «Текст блока» не нужна — текст говорит сам за себя
   gen.innerHTML = `
-    <div class="doc-sub__title" contenteditable="false">Текст блока</div>
     <div class="doc-generated__body" contenteditable="true" data-ph="Введите текст блока…">${block.generated || ''}</div>`;
   const body = gen.querySelector('.doc-generated__body');
   body.addEventListener('input', () => {
@@ -1035,16 +1048,18 @@ function renderBlocks() {
     el.dataset.blockId = block.id;
     el.title = issuesOk ? '' : issues.join('; ');
 
-    // ЛЕВАЯ колонка — описание блока: ручка и само описание
-    // (плашки «Блок N» нет: описание блока встало на её место полузаголовком)
+    // ЛЕВАЯ колонка — маргиналия: всегда только короткое название раздела,
+    // детали (эпизод, тезис, счётчики) раскрываются у активного/наведённого блока
+    const details = blockDetails(block);
     const info = document.createElement('div');
     info.className = 'doc-info';
     info.contentEditable = 'false';
     info.innerHTML = `
       <div class="doc-info__row">
         <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
-        <span class="doc-info__title" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockSummary(block)}</span>
-      </div>`;
+        <span class="doc-info__title" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockLead(block)}</span>
+      </div>
+      ${details.length ? `<div class="doc-info__details">${details.map(d => `<span>${d}</span>`).join('')}</div>` : ''}`;
 
     // ПРАВАЯ колонка — управляющие кнопки: пиктограммы + кнопки действий
     const act = document.createElement('div');
