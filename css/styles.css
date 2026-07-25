@@ -501,13 +501,18 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   padding: 2px 0 0;
   cursor: default;
 }
-/* служебный ряд: свернуть конструктор и удалить блок — компактными иконками */
+/* ряд иконок: правка с ИИ → перегенерация → свернуть → удалить (последним, с отступом) */
 .doc-act__row {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 2px;
 }
+.doc-act__row .head-ic--del { margin-left: 6px; }
+/* перегенерация: акцентная, пока конструктор не изменён — приглушена */
+.head-ic--regen { color: var(--accent); }
+.head-ic--regen:hover { background: var(--accent-soft-2); }
+.head-ic--regen:disabled { color: #c9cede; cursor: default; background: none; }
 .doc-act .doc-block__meta {
   margin-top: 0;
   padding-top: 0;
@@ -539,34 +544,14 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 .act-btn svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 /* подпись переносится, а не обрезается — контекст виден целиком */
 .act-btn span { min-width: 0; }
-/* «Редактировать с ИИ» — главное действие блока */
-.act-btn--ai {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 700;
-}
-.act-btn--ai:hover { background: #2f49d1; }
-/* «Не хватает доказательств» — предупреждающая */
+/* «Не хватает доказательств» — тот же жёлтый, что у полосы блока и подсветки аргумента */
 .act-btn--warn {
   background: #fdf3e0;
-  border-color: #f0ddb0;
+  border-color: var(--warn);
   color: #9a6b00;
-}
-.act-btn--warn:hover { background: #fae9c8; }
-/* «Перегенерировать» — активна только при изменениях конструктора */
-.act-btn--regen {
-  background: #fff;
-  border-color: #c9d4fb;
   font-weight: 700;
 }
-.act-btn--regen:hover { background: var(--accent-soft-2); }
-.act-btn--regen:disabled {
-  color: #c9cede;
-  border-color: var(--border);
-  background: #fff;
-  cursor: default;
-}
+.act-btn--warn:hover { background: #fae9c8; }
 .doc-block__grip {
   flex: none;
   color: var(--text-muted);
@@ -759,8 +744,8 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 .doc-ground.is-drop-target { box-shadow: inset 0 2px 0 var(--accent); }
 .doc-ground__type { cursor: grab; }
 
-/* аргумент без доказательства */
-.doc-arg--needs-ev { border-color: #f0ddb0; background: #fffdf6; }
+/* аргумент без доказательства — в тон жёлтой кнопке и полосе блока */
+.doc-arg--needs-ev { border-color: var(--warn); background: #fdf3e0; }
 
 /* сплит-кнопка «+ Доказательство | не нужны» */
 .ev-split { display: inline-flex; }
@@ -929,28 +914,7 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   flex-wrap: wrap;
   gap: 5px;
 }
-.doc-block__tools button {
-  font-size: 11.5px;
-  color: var(--accent);
-  background: var(--accent-soft-2);
-  border: 1px solid #e3e9fd;
-  border-radius: 7px;
-  padding: 3px 9px;
-}
-.doc-block__tools button:hover { background: var(--accent-soft); }
-.doc-block__tools .meta-btn--warn {
-  background: #fdf3e0;
-  border-color: #f0ddb0;
-  color: #9a6b00;
-}
-.doc-block__tools .meta-btn--warn::before { content: "⚠ "; }
-.doc-block__tools .meta-btn--warn:hover { background: #fae9c8; }
-.doc-block__tools .meta-btn--line {
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* стили кнопок блока живут в .act-btn (см. колонку действий) */
 .modal-sub { color: var(--text-muted); }
 .modal__context {
   margin: 6px 18px 0;
@@ -971,25 +935,6 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   font-style: italic;
 }
 
-.doc-block__tools .meta-regen {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 700;
-}
-.doc-block__tools .meta-regen:hover { background: #2f49d1; }
-.doc-block__tools .meta-regen:disabled {
-  opacity: .4;
-  cursor: default;
-  background: var(--accent);
-}
-/* при закрытом конструкторе скрываем, но резервируем место — кнопка-тогглер не прыгает */
-.doc-block__tools .meta-regen.is-hidden { visibility: hidden; }
-/* фиксированная ширина тогглера: подпись меняется, геометрия — нет */
-.doc-block__tools [data-special="ctor-toggle"] {
-  min-width: 212px;
-  text-align: center;
-}
 
 /* Ховер-звёздочка действий у блока */
 .doc-block__star {

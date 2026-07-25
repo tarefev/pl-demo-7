@@ -156,8 +156,9 @@ function buildBlockMeta(block) {
 
   const isCtor = !!(block.parts && block.parts.length);
   const isDefense = (block.section || 'defense') === 'defense' || isCtor;
-  // действия — кнопки с иконкой и подписью: главная «Редактировать с ИИ» первой
-  const barBtns = [['rewrite', 'Редактировать с ИИ', false]];
+  // правка с ИИ и перегенерация живут иконками в верхнем ряду колонки;
+  // здесь — только кнопки с подписями по составу блока
+  const barBtns = [];
 
   if (isDefense && isCtor) {
     const argsCount = (block.argsList || []).length;
@@ -171,17 +172,12 @@ function buildBlockMeta(block) {
     barBtns.push(['pick-line', 'Выбрать линию защиты', true]);
   }
 
-  const regenHtml = isCtor ? `
-    <button class="act-btn act-btn--regen" data-special="regen" ${block.dirty ? '' : 'disabled'} title="Перегенерировать текст блока по данным конструктора">
-      ${ACT_ICONS.regen}<span>Перегенерировать</span>
-    </button>` : '';
-
-  // действия — кнопки с иконкой и подписью: контекст считывается без наведения
+  // кнопки состава блока — с иконкой и подписью: контекст считывается без наведения
   meta.innerHTML = `
     <div class="doc-block__tools">${barBtns.map(([id, label, warn]) => `
-      <button data-tool="${id}" class="act-btn${warn ? ' act-btn--warn' : ''}${id === 'rewrite' ? ' act-btn--ai' : ''}" title="${label}">
+      <button data-tool="${id}" class="act-btn${warn ? ' act-btn--warn' : ''}" title="${label}">
         ${ACT_ICONS[id] || ''}<span>${label}</span>
-      </button>`).join('')}${regenHtml}
+      </button>`).join('')}
     </div>`;
 
   meta.querySelectorAll('button[data-tool]').forEach(btn => {
@@ -1002,8 +998,12 @@ const labelGen = label => (label || '').replace(/^Блок /, 'Блока ');
 /** Ручное изменение конструктора: активируем «Перегенерировать», одно уведомление в чат. */
 function markDirty(block, what, partKey) {
   block.dirty = true;
-  const btn = document.querySelector(`.doc-block[data-block-id="${block.id}"] .meta-regen`);
-  if (btn) btn.disabled = false;
+  // иконка перегенерации в ряду действий становится активной
+  const btn = document.querySelector(`.doc-block[data-block-id="${block.id}"] [data-h="regen"]`);
+  if (btn) {
+    btn.disabled = false;
+    btn.title = 'Перегенерировать текст по данным конструктора';
+  }
   // связанные с аргументами подблоки изменились — аргументы требуют обновления
   if (partKey && partKey !== 'arguments' && ['norms', 'practice', 'circumstances', 'other', 'evidence'].includes(partKey)) {
     markArgsStale(block);
@@ -1081,8 +1081,16 @@ function renderBlocks() {
     const act = document.createElement('div');
     act.className = 'doc-act';
     act.contentEditable = 'false';
+    // ряд действий: правка текста → перегенерация → вид → удаление (необратимое последним)
     act.innerHTML = `
       <div class="doc-act__row">
+        <button class="head-ic head-ic--ai" data-h="ai" title="Редактировать с ИИ">
+          <svg viewBox="0 0 24 24"><path d="M16.5 3.5a2.4 2.4 0 1 1 3.4 3.4L7 19.8 2.5 21l1.2-4.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m19 13 .8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor"/></svg>
+        </button>
+        ${isCtor ? `<button class="head-ic head-ic--regen" data-h="regen" ${block.dirty ? '' : 'disabled'}
+          title="${block.dirty ? 'Перегенерировать текст по данным конструктора' : 'Перегенерация доступна после изменений в конструкторе'}">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>` : ''}
         ${isCtor ? `<button class="head-ic" data-h="toggle" title="${block.constructorDone ? 'Открыть конструктор' : 'Закрыть конструктор'}">
           <svg viewBox="0 0 24 24" style="transform: rotate(${block.constructorDone ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>` : ''}
@@ -1091,6 +1099,17 @@ function renderBlocks() {
         </button>
       </div>`;
     act.appendChild(buildBlockMeta(block));
+
+    act.querySelector('[data-h="ai"]').addEventListener('click', e => {
+      e.stopPropagation();
+      setActiveBlock(block.id);
+      if (state.busy) return;
+      onStarAction({ id: 'rewrite', label: BLOCK_ACTION_LABELS['rewrite'], needsBlock: true });
+    });
+    act.querySelector('[data-h="regen"]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      onRegenerateClick(block);
+    });
     act.querySelector('[data-h="toggle"]')?.addEventListener('click', e => {
       e.stopPropagation();
       toggleConstructor(block);
