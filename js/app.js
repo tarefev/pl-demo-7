@@ -1068,10 +1068,11 @@ function renderBlocks() {
     const info = document.createElement('div');
     info.className = 'doc-info';
     info.contentEditable = 'false';
+    // отдельной ручки нет: блок перетаскивается за само название раздела
     info.innerHTML = `
       <div class="doc-info__row">
-        <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
-        <span class="doc-info__title" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockLead(block)}</span>
+        <span class="doc-info__title" draggable="true"
+              title="${blockSummary(block).replace(/"/g, '&quot;')}&#10;Перетащите, чтобы переставить блок">${blockLead(block)}</span>
       </div>
       ${details.length ? `<div class="doc-info__details">${details.map(d => `<span>${d}</span>`).join('')}</div>` : ''}
       ${needsEv ? `<button class="doc-info__alert" data-h="needs-ev" title="Развернуть конструктор и перейти к аргументу без доказательства">Не хватает доказательств</button>` : ''}`;
@@ -1129,8 +1130,8 @@ function renderBlocks() {
       confirmDeleteBlock(block);
     });
 
-    // перетаскивание блока за ручку
-    const grip = info.querySelector('.doc-block__grip');
+    // перетаскивание блока за название раздела
+    const grip = info.querySelector('.doc-info__title');
     grip.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/block-id', block.id);
       e.dataTransfer.effectAllowed = 'move';
@@ -1149,11 +1150,14 @@ function renderBlocks() {
       if (!dragId || dragId === block.id) return;
       e.preventDefault();
       const from = state.blocks.findIndex(b => b.id === dragId);
+      const target = state.blocks.findIndex(b => b.id === block.id);
       const dragged = state.blocks[from];
       if (!dragged || (dragged.section || 'defense') !== (block.section || 'defense')) return;
       state.blocks.splice(from, 1);
-      const to = state.blocks.findIndex(b => b.id === block.id);
-      state.blocks.splice(to, 0, dragged);
+      // тянем вниз — встаём ПОСЛЕ цели, вверх — перед ней (иначе перенос на
+      // соседа снизу возвращал блок на прежнее место)
+      const idx = state.blocks.findIndex(b => b.id === block.id);
+      state.blocks.splice(from < target ? idx + 1 : idx, 0, dragged);
       renderBlocks();
       addMessage('assistant', `${dragged.label} перемещён.`);
     });
