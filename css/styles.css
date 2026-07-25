@@ -500,7 +500,7 @@ body.ctrl-left .doc-block.is-short .doc-block__body::before {
  */
 .doc-info__alert {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 5px;
   padding: 4px 8px;
   border: 1px solid var(--warn);
   border-radius: 7px;
@@ -513,21 +513,35 @@ body.ctrl-left .doc-block.is-short .doc-block__body::before {
 }
 .doc-info__alert:hover { background: #fae9c8; }
 
-/* детали: эпизод и тезис целиком — выключкой влево, так длинный тезис читается */
-.doc-info__details {
-  display: none;
-  flex-direction: column;
-  gap: 4px;
+/* эпизод — короткий ярлык привязки: видно всегда, одной строкой */
+.doc-info__episode {
   margin-top: 5px;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: var(--text-muted);
-  text-align: left;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* тезис — вторым, чуть заметнее эпизода: это суть блока */
-.doc-info__details span + span { color: #5b6270; }
-.doc-block:hover .doc-info__details,
-.doc-block.is-active .doc-info__details { display: flex; }
+/**
+ * Тезис — суть блока: в покое одна строка (по ней блок узнаётся),
+ * у активного или наведённого блока раскрывается целиком.
+ * Метка о доказательствах стоит выше — она не двигается при раскрытии.
+ */
+.doc-info__thesis {
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 2px solid #d7dae3;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #2b3040;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.doc-block:hover .doc-info__thesis,
+.doc-block.is-active .doc-info__thesis { -webkit-line-clamp: 12; }
 /* при колонке кнопок слева описание уходит вправо — прижимаем к тексту слева */
 body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 
@@ -541,26 +555,24 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
+  gap: 6px;
   padding: 2px 0 0;
   cursor: default;
 }
 /**
- * Два ряда. Верхний есть у всех блоков и держит два стабильных якоря:
- * ✦ИИ всегда первый слева, 🗑 всегда последний у правого края — мышечная
- * память «начать слева, удалить у края». Между ними распорка и разделитель,
- * чтобы корзина не оказалась в одном движении от рабочих кнопок.
- * Нижний ряд — содержательные действия по конструктору, прижаты влево.
+ * Иконки — сеткой 2×2, равные ячейки, иконка по центру: ровные зазоры и
+ * выравнивание по столбцам. Частые действия сверху (конструктор · ИИ),
+ * реже/опасное снизу (перегенерация · удаление). Корзина — в правом-нижнем
+ * углу, самый «безопасный» угол для необратимого; отделена зазором сетки.
+ * У секций без конструктора остаётся один ряд: ИИ · удаление.
  */
 .doc-act__row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
   align-items: center;
-  gap: 2px;
+  justify-items: center;
 }
-.doc-act__row--ctor { justify-content: flex-start; }
-/* корзина отбита зазором — без черты-разделителя */
-.doc-act__row .head-ic--del { margin-left: 12px; }
 /* перегенерация: акцентная, пока конструктор не изменён — приглушена */
 .doc-act .doc-block__meta {
   margin-top: 0;
