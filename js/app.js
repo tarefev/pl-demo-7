@@ -998,6 +998,7 @@ function markDirty(block, what, partKey) {
   const btn = document.querySelector(`.doc-block[data-block-id="${block.id}"] [data-h="regen"]`);
   if (btn) {
     btn.disabled = false;
+    btn.classList.add('is-on');
     btn.title = 'Перегенерировать текст по данным конструктора';
   }
   // связанные с аргументами подблоки изменились — аргументы требуют обновления
@@ -1104,7 +1105,7 @@ function renderBlocks() {
         <button class="head-ic" data-h="toggle" title="${block.constructorDone ? 'Открыть конструктор' : 'Закрыть конструктор'}">
           <svg viewBox="0 0 24 24" style="transform: rotate(${block.constructorDone ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button class="head-ic head-ic--regen" data-h="regen" ${block.dirty ? '' : 'disabled'}
+        <button class="head-ic head-ic--regen${block.dirty ? ' is-on' : ''}" data-h="regen" ${block.dirty ? '' : 'disabled'}
           title="${block.dirty ? 'Перегенерировать текст по данным конструктора' : 'Перегенерация доступна после изменений в конструкторе'}">
           <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -1253,7 +1254,9 @@ function markShortBlocks() {
   const apply = () => document.querySelectorAll('.doc-block').forEach(el => {
     const body = el.querySelector('.doc-block__body');
     const h = body ? body.getBoundingClientRect().height : 0;
-    el.classList.toggle('is-short', h < SHORT_BLOCK_H);
+    // блок в процессе генерации короткий лишь временно — скобку не урезаем
+    const pending = !!el.querySelector('.gen-pending');
+    el.classList.toggle('is-short', !pending && h < SHORT_BLOCK_H);
   });
   apply();                        // сразу после рендера
   requestAnimationFrame(apply);   // и ещё раз, когда контент дорисован
