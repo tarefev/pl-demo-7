@@ -479,10 +479,6 @@ body.ctrl-left .doc-block.is-short .doc-block__body::before {
   line-height: 1.4;
   color: #5b6270;
   text-align: left;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   transition: color .15s;
   /* за название блок перетаскивается — отдельной ручки нет */
   cursor: grab;
@@ -513,21 +509,14 @@ body.ctrl-left .doc-block.is-short .doc-block__body::before {
 }
 .doc-info__alert:hover { background: #fae9c8; }
 
-/* эпизод — короткий ярлык привязки: видно всегда, одной строкой */
+/* эпизод — ярлык привязки: показывается целиком, с переносом */
 .doc-info__episode {
   margin-top: 5px;
   font-size: 11px;
   line-height: 1.35;
   color: #6b7280;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-/**
- * Тезис — суть блока: в покое одна строка (по ней блок узнаётся),
- * у активного или наведённого блока раскрывается целиком.
- * Метка о доказательствах стоит выше — она не двигается при раскрытии.
- */
+/* Тезис — суть блока: показывается целиком, без обрезки и раскрытий */
 .doc-info__thesis {
   margin-top: 4px;
   padding-left: 8px;
@@ -535,13 +524,7 @@ body.ctrl-left .doc-block.is-short .doc-block__body::before {
   font-size: 12.5px;
   line-height: 1.45;
   color: #2b3040;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
-.doc-block:hover .doc-info__thesis,
-.doc-block.is-active .doc-info__thesis { -webkit-line-clamp: 12; }
 /* при колонке кнопок слева описание уходит вправо — прижимаем к тексту слева */
 body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
 
@@ -555,7 +538,7 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 8px;
   padding: 2px 0 0;
   cursor: default;
 }
@@ -568,10 +551,10 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
  */
 .doc-act__row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  grid-template-columns: auto auto;
+  justify-content: center;
   align-items: center;
-  justify-items: center;
+  gap: 8px;
 }
 /* перегенерация: акцентная, пока конструктор не изменён — приглушена */
 .doc-act .doc-block__meta {
