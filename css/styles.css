@@ -230,13 +230,14 @@ button {
   /* горизонтального скролла у полотна не бывает — контент обязан ужиматься */
   overflow-x: hidden;
   /* без верхнего паддинга: sticky-шапки блоков прилипают к самому верху,
-     прокрутка не просвечивает над ними */
-  padding: 0 40px 80px;
+     прокрутка не просвечивает над ними; боковые поля минимальные — колонки
+     и так отделяют текст от краёв, пустоты по бокам не нужны */
+  padding: 0 14px 80px;
 }
 
 .page {
-  /* ширина текста прежняя (860) + колонки описания и управления по краям */
-  max-width: calc(860px + var(--info-col) + var(--act-col));
+  /* текст + колонки; при узком окне страница просто занимает доступную ширину */
+  max-width: calc(980px + var(--info-col) + var(--act-col));
   margin: 0 auto;
   position: relative;
   padding-top: 28px;
@@ -447,10 +448,11 @@ body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
 .doc-info__title {
   flex: 1;
   min-width: 0;
+  /* вес вместо размера: заметный якорь при прокрутке, но текст служебный */
   font-size: 12.5px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.4;
-  color: var(--text-muted);
+  color: #5b6270;
   text-align: left;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -462,8 +464,9 @@ body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
   user-select: none;
 }
 .doc-info__title:active { cursor: grabbing; }
-.doc-block:hover .doc-info__title,
-.doc-block.is-active .doc-info__title { color: #5b6270; }
+.doc-block:hover .doc-info__title { color: #3a4050; }
+/* активный блок — акцентом: видно, с чем сейчас работаешь (это про фокус, не про статус) */
+.doc-block.is-active .doc-info__title { color: var(--accent); }
 
 /**
  * Метка «Не хватает доказательств» — единственный сигнал в маргиналии.
