@@ -1025,25 +1025,26 @@ function renderBlocks() {
   const renderBlockEl = block => {
     counter += 1;
     block.label = `Блок ${counter}`;
-    const issuesOk = !blockIssues(block).length;
+    const issues = blockIssues(block);
+    const issuesOk = !issues.length;
     const isCtor = !!(block.parts && block.parts.length);
     const el = document.createElement('div');
-    el.className = 'doc-block' + (block.id === state.activeBlockId ? ' is-active' : '');
+    // готовность блока показывает вертикальная полоса у текста (галок и меток нет)
+    el.className = 'doc-block' + (block.id === state.activeBlockId ? ' is-active' : '') +
+      (issuesOk ? ' is-ok' : ' is-warn');
     el.dataset.blockId = block.id;
+    el.title = issuesOk ? '' : issues.join('; ');
 
-    // единый столбец управления: галка слева, номер и назначение в столбце,
-    // ЛЕВАЯ колонка — описание блока: галка-статус, номер, назначение
+    // ЛЕВАЯ колонка — описание блока: ручка и само описание
+    // (плашки «Блок N» нет: описание блока встало на её место полузаголовком)
     const info = document.createElement('div');
     info.className = 'doc-info';
     info.contentEditable = 'false';
     info.innerHTML = `
       <div class="doc-info__row">
-        <span class="doc-block__status ${issuesOk ? 'is-done' : ''}"
-              title="${issuesOk ? 'Готово' : 'По сводке блока чего-то не хватает'}"></span>
         <span class="doc-block__grip" draggable="true" title="Перетащить блок">⋮⋮</span>
-        <span class="doc-block__num">${block.label}</span>
-      </div>
-      <div class="doc-info__summary" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockSummary(block)}</div>`;
+        <span class="doc-info__title" title="${blockSummary(block).replace(/"/g, '&quot;')}">${blockSummary(block)}</span>
+      </div>`;
 
     // ПРАВАЯ колонка — управляющие кнопки: пиктограммы + кнопки действий
     const act = document.createElement('div');
@@ -1360,13 +1361,13 @@ async function runPlaceholderAction(act) {
   }
 }
 
-/** Разово поясняем в чате значок «!» у блоков, требующих завершения. */
+/** Разово поясняем в чате индикацию готовности блоков полосой. */
 function maybeExplainWarnings() {
   if (state.warnExplained) return;
   if (!state.blocks.some(b => blockIssues(b).length)) return;
   state.warnExplained = true;
   const el = addMessage('assistant', '');
-  el.innerHTML = 'Значком <span class="msg-warn-icon">!</span> отмечены блоки текста, которые требуют завершения — например, в них не хватает доказательств. Чего именно не хватает, видно в сводке блока.';
+  el.innerHTML = 'Готовность блока показывает вертикальная полоса у текста: зелёная — блок заполнен, <span class="msg-warn-icon">жёлтая</span> — требует завершения, например не хватает доказательств. Чего именно не хватает, видно в описании блока.';
   scrollFeed();
 }
 
@@ -3125,7 +3126,7 @@ async function runGenByLines() {
     <div class="msg-accent__title">Черновик собран — продолжайте в документе слева</div>
     <ul>
       <li>Заполнено: ${doneSections.join(', ')}.</li>
-      <li>Жёлтые метки <span class="msg-warn-icon">!</span> и чеклист сверху показывают, что требует завершения.</li>
+      <li><span class="msg-warn-icon">Жёлтая</span> полоса у блока и чеклист сверху показывают, что требует завершения.</li>
       <li>Раскройте конструктор блока, чтобы уточнить аргументы, доказательства и практику.</li>
     </ul>`;
   scrollFeed();
