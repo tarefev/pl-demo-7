@@ -15,8 +15,8 @@
   --shadow: 0 1px 3px rgba(20, 24, 40, .07), 0 8px 24px rgba(20, 24, 40, .05);
   /* три колонки: маргиналия с названием раздела и узкий столбец иконок действий */
   --info-w: 150px;
-  /* в правой колонке только ряд иконок (ИИ, перегенерация, свернуть, удалить) */
-  --act-w: 116px;
+  /* правая колонка: два ряда по две иконки */
+  --act-w: 68px;
   --col-gap: 12px;
   --info-col: calc(var(--info-w) + var(--col-gap));
   --act-col: calc(var(--act-w) + var(--col-gap));
@@ -522,14 +522,13 @@ body.ctrl-left .doc-info__row { flex-direction: row-reverse; }
   padding: 2px 0 0;
   cursor: default;
 }
-/* ряд иконок: правка с ИИ → перегенерация → свернуть → удалить (последним, с отступом) */
+/* два ряда: сверху правка и удаление (у всех блоков), снизу — про конструктор */
 .doc-act__row {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 2px;
 }
-.doc-act__row .head-ic--del { margin-left: 6px; }
 /* перегенерация: акцентная, пока конструктор не изменён — приглушена */
 .head-ic--regen { color: var(--accent); }
 .head-ic--regen:hover { background: var(--accent-soft-2); }

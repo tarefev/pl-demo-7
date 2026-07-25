@@ -1085,23 +1085,27 @@ function renderBlocks() {
     const act = document.createElement('div');
     act.className = 'doc-act';
     act.contentEditable = 'false';
-    // ряд действий: правка текста → перегенерация → вид → удаление (необратимое последним)
+    // два ряда: сверху общие для всех блоков (правка, удаление),
+    // снизу — про конструктор: слева развернуть, справа перегенерировать
     act.innerHTML = `
       <div class="doc-act__row">
         <button class="head-ic head-ic--ai" data-h="ai" title="Редактировать с ИИ">
           <svg viewBox="0 0 24 24"><path d="M16.5 3.5a2.4 2.4 0 1 1 3.4 3.4L7 19.8 2.5 21l1.2-4.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m19 13 .8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor"/></svg>
         </button>
-        ${isCtor ? `<button class="head-ic head-ic--regen" data-h="regen" ${block.dirty ? '' : 'disabled'}
-          title="${block.dirty ? 'Перегенерировать текст по данным конструктора' : 'Перегенерация доступна после изменений в конструкторе'}">
-          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>` : ''}
-        ${isCtor ? `<button class="head-ic" data-h="toggle" title="${block.constructorDone ? 'Открыть конструктор' : 'Закрыть конструктор'}">
-          <svg viewBox="0 0 24 24" style="transform: rotate(${block.constructorDone ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>` : ''}
         <button class="head-ic head-ic--del" data-h="delete" title="Удалить блок">
           <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-.7 12.1a2 2 0 0 1-2 1.9H8.7a2 2 0 0 1-2-1.9L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-      </div>`;
+      </div>
+      ${isCtor ? `
+      <div class="doc-act__row doc-act__row--ctor">
+        <button class="head-ic" data-h="toggle" title="${block.constructorDone ? 'Открыть конструктор' : 'Закрыть конструктор'}">
+          <svg viewBox="0 0 24 24" style="transform: rotate(${block.constructorDone ? 0 : 180}deg)"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="head-ic head-ic--regen" data-h="regen" ${block.dirty ? '' : 'disabled'}
+          title="${block.dirty ? 'Перегенерировать текст по данным конструктора' : 'Перегенерация доступна после изменений в конструкторе'}">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>` : ''}`;
     act.appendChild(buildBlockMeta(block));
 
     act.querySelector('[data-h="ai"]').addEventListener('click', e => {
