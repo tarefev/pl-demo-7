@@ -454,7 +454,7 @@ body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
 .doc-info__title {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 400;
   line-height: 1.4;
   color: var(--text-muted);
@@ -473,7 +473,7 @@ body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
   flex-direction: column;
   gap: 3px;
   margin-top: 5px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.4;
   color: var(--text-muted);
   text-align: right;
