@@ -1239,6 +1239,24 @@ function renderBlocks() {
   });
   appendAddBlockButton();
   updateChecklist();
+  markShortBlocks();
+}
+
+/**
+ * У коротких блоков скобка на полях рисуется без загибов — иначе она
+ * читается рамкой-выделением, а не разметкой границ блока.
+ */
+// порог по высоте текста (~3 строки), а не по высоте блока: у блока своя
+// минимальная высота из-за колонок с кнопками
+const SHORT_BLOCK_H = 82;
+function markShortBlocks() {
+  const apply = () => document.querySelectorAll('.doc-block').forEach(el => {
+    const body = el.querySelector('.doc-block__body');
+    const h = body ? body.getBoundingClientRect().height : 0;
+    el.classList.toggle('is-short', h < SHORT_BLOCK_H);
+  });
+  apply();                        // сразу после рендера
+  requestAnimationFrame(apply);   // и ещё раз, когда контент дорисован
 }
 
 /** Пустой блок в указанном месте: сразу активен, можно печатать или привязать линию. */

@@ -360,23 +360,47 @@ body.ctrl-left .doc-block { flex-direction: row-reverse; }
   position: relative;
   padding-left: 14px;
 }
+/**
+ * Скобка на полях: вертикаль с короткими загибами внутрь сверху и снизу —
+ * очерчивает границы блока «отсюда и досюда», как разметка на бумаге.
+ * У коротких блоков (класс is-short ставится в renderBlocks) загибы убираются,
+ * иначе скобка выглядит рамкой-выделением.
+ */
+/* цвет скобки = индикация готовности блока */
+.doc-block { --bracket: var(--border-strong); }
+.doc-block.is-ok { --bracket: #2eb872; }
+.doc-block.is-warn { --bracket: var(--warn); }
+
 .doc-block__body::before {
   content: "";
   position: absolute;
   left: 0;
   top: 3px;
   bottom: 3px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--border-strong);
-  transition: background .15s;
+  width: 7px;
+  border: 2px solid var(--bracket);
+  border-right: none;
+  border-radius: 3px 0 0 3px;
+  transition: border-color .15s;
 }
-/* при переключении описание уходит вправо — полоса вместе с ним */
+/* короткий блок — без загибов, чтобы скобка не читалась рамкой-выделением */
+.doc-block.is-short .doc-block__body::before {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+/* при переключении описание уходит вправо — скобка зеркалится вместе с ним */
 body.ctrl-left .doc-block__body { padding-left: 0; padding-right: 14px; }
-body.ctrl-left .doc-block__body::before { left: auto; right: 0; }
-/* индикация готовности блока полосой (активность блока показывает фон текста) */
-.doc-block.is-ok .doc-block__body::before { background: #2eb872; }
-.doc-block.is-warn .doc-block__body::before { background: var(--warn); }
+body.ctrl-left .doc-block__body::before {
+  left: auto;
+  right: 0;
+  border: 2px solid var(--bracket);
+  border-left: none;
+  border-radius: 0 3px 3px 0;
+}
+body.ctrl-left .doc-block.is-short .doc-block__body::before {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
 .doc-block.is-active .doc-block__body { background: var(--accent-soft-2); border-radius: 6px; }
 
 /* кружки-галочки и восклицательные метки не используются — статус даёт полоса */
